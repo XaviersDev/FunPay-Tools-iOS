@@ -43,6 +43,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.fleeksoft.ksoup.Ksoup
 
+@kotlinx.serialization.Serializable
 data class Lot(
     val id: String,
     val title: String,
@@ -57,6 +58,7 @@ data class Lot(
     val hasAutoDelivery: Boolean = false
 )
 
+@kotlinx.serialization.Serializable
 data class LotFieldCondition(
     /** Имя поля формы, например "fields[type]". */
     val fieldName: String,
@@ -64,6 +66,7 @@ data class LotFieldCondition(
     val values: List<String>
 )
 
+@kotlinx.serialization.Serializable
 data class LotField(
     val name: String,
     /** text | number | textarea | select | checkbox | hidden */
@@ -79,18 +82,21 @@ data class LotField(
     val sendEmptyWhenOff: Boolean = false
 )
 
+@kotlinx.serialization.Serializable
 data class LotImage(
     val fileId: String,
     val thumbnailUrl: String,
     val fullUrl: String
 )
 
+@kotlinx.serialization.Serializable
 data class BuyerPriceRow(
     val method: String,
     val ratio: Double,
     val currencySymbol: String
 )
 
+@kotlinx.serialization.Serializable
 data class LotFieldsData(
     val fields: Map<String, LotField>,
     val currency: String,
@@ -106,13 +112,17 @@ data class LotFieldsData(
 
 sealed class LotsUiState {
     object Loading : LotsUiState()
+    @kotlinx.serialization.Serializable
     data class Success(val lots: List<Lot>) : LotsUiState()
+    @kotlinx.serialization.Serializable
     data class Error(val message: String) : LotsUiState()
 }
 
 sealed class LotEditUiState {
     object Loading : LotEditUiState()
+    @kotlinx.serialization.Serializable
     data class Success(val fieldsData: LotFieldsData) : LotEditUiState()
+    @kotlinx.serialization.Serializable
     data class Error(val message: String) : LotEditUiState()
 }
 
@@ -656,6 +666,7 @@ fun buildOfferSaveForm(data: LotFieldsData, overrides: Map<String, String>): Lis
     return out
 }
 
+@kotlinx.serialization.Serializable
 data class OfferSaveResult(val ok: Boolean, val error: String? = null)
 
 suspend fun FunPayRepository.postOfferSave(form: List<Pair<String, String>>, referer: String): OfferSaveResult =

@@ -37,11 +37,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+@kotlinx.serialization.Serializable
 data class RMTUserStats(
     val user: RMTUser,
     val stats: RMTStatsData
 )
 
+@kotlinx.serialization.Serializable
 data class RMTUser(
     val id: Int,
     val username: String,
@@ -49,6 +51,7 @@ data class RMTUser(
     val banned: Boolean
 )
 
+@kotlinx.serialization.Serializable
 data class RMTStatsData(
     val totalAmount: Double,
     val totalReviews: Int,

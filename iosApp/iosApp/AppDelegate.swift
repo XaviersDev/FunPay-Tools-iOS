@@ -1,5 +1,6 @@
 import UIKit
 import Shared
+import WidgetKit
 
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -73,12 +74,33 @@ final class RootViewController: UIViewController {
     }
 }
 
-/// Passes widget data to the App Group so a WidgetKit extension can show it.
+/// Passes widget data to the App Group so the WidgetKit extension can show it.
 enum WidgetDataBridge {
+    static var groupId: String {
+        if let groups = Bundle.main.object(forInfoDictionaryKey: "ALTAppGroups") as? [String], let first = groups.first {
+            return first
+        }
+        return "group.ru.allisighs.funpaytools"
+    }
+
+    private static var lastAvatarUrl: String?
+
     static func install() {
         WidgetBridge.shared.publisher = { json in
-            let defaults = UserDefaults(suiteName: "group.ru.allisighs.funpaytools") ?? UserDefaults.standard
+            guard let defaults = UserDefaults(suiteName: groupId) else { return KotlinUnit() }
             defaults.set(json, forKey: "widget_profile")
+            if let data = json.data(using: .utf8),
+               let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let avatar = o["avatar"] as? String, !avatar.isEmpty, avatar != lastAvatarUrl,
+               let url = URL(string: avatar),
+               let dir = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: groupId) {
+                lastAvatarUrl = avatar
+                URLSession.shared.dataTask(with: url) { d, _, _ in
+                    if let d = d { try? d.write(to: dir.appendingPathComponent("widget_avatar.png")) }
+                    DispatchQueue.main.async { WidgetCenter.shared.reloadAllTimelines() }
+                }.resume()
+            }
+            WidgetCenter.shared.reloadAllTimelines()
             return KotlinUnit()
         }
     }

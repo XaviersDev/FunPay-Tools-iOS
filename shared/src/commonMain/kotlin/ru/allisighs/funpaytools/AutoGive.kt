@@ -42,6 +42,7 @@ import kotlinx.coroutines.withContext
 
 
 
+@kotlinx.serialization.Serializable
 data class AutoDeliverySettings(
     @SerializedName("enabled") val enabled: Boolean = false,
     @SerializedName("multiDelivery") val multiDelivery: Boolean = true,
@@ -50,6 +51,7 @@ data class AutoDeliverySettings(
     @SerializedName("lots") val lots: List<AutoDeliveryLot> = emptyList()
 )
 
+@kotlinx.serialization.Serializable
 data class AutoDeliveryLot(
     @SerializedName("id") val id: String = UUID.randomUUID().toString(),
     @SerializedName("lotName") val lotName: String = "",

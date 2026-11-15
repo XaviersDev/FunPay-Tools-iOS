@@ -57,6 +57,7 @@ const val APP_VERSION = "1.4.1"
 /** Заказы, по которым только что ушёл бонус за отзыв (общая на все экземпляры репозитория). */
 private val recentBonusOrders = HashMap<String, Long>()
 
+@kotlinx.serialization.Serializable
 data class AutoRefundSettings(
     val enabled: Boolean = false,
     val maxPrice: Double = 10.0,
@@ -67,6 +68,7 @@ data class AutoRefundSettings(
     val imageFirst: Boolean = true
 )
 
+@kotlinx.serialization.Serializable
 data class OrderConfirmSettings(
     val enabled: Boolean = false,
     val text: String = "Спасибо за заказ, \$username! 🤝\nБуду очень благодарен, если оставите отзыв. Это очень поможет мне! 😊",
@@ -75,6 +77,7 @@ data class OrderConfirmSettings(
 )
 
 
+@kotlinx.serialization.Serializable
 data class ReadMarkSettings(
     val markAfterAutoReply: Boolean = true,
     val markAfterGreeting: Boolean = true,
@@ -89,6 +92,7 @@ data class ReadMarkSettings(
 )
 
 
+@kotlinx.serialization.Serializable
 data class AiVarPermissions(
     
     val allowChatHistory: Boolean = true,
@@ -102,8 +106,10 @@ data class AiVarPermissions(
     val allowReviewStars: Boolean = true   
 )
 
+@kotlinx.serialization.Serializable
 data class ChatItem(val id: String, val username: String, val lastMessage: String, val isUnread: Boolean, val avatarUrl: String, val date: String, val activeLot: String? = null)
 
+@kotlinx.serialization.Serializable
 data class MessageItem(
     val id: String,
     val author: String,
@@ -118,6 +124,7 @@ data class MessageItem(
     val authorAvatarUrl: String? = null
 )
 
+@kotlinx.serialization.Serializable
 data class AutoResponseCommand(
     val trigger: String,
     val response: String,
@@ -141,6 +148,7 @@ data class AutoResponseCommand(
             ?: "Зову хозяина, он ответит в течение часа."
 }
 
+@kotlinx.serialization.Serializable
 data class MessageTemplate(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
@@ -149,10 +157,12 @@ data class MessageTemplate(
     val imageFirst: Boolean = true
 )
 
+@kotlinx.serialization.Serializable
 data class TemplateSettings(
     val sendImmediately: Boolean = false
 )
 
+@kotlinx.serialization.Serializable
 data class ReviewReplySettings(
     val enabled: Boolean = false,
     val useAi: Boolean = false,
@@ -167,6 +177,7 @@ data class ReviewReplySettings(
     val aiCustomInstruction: String = ""
 )
 
+@kotlinx.serialization.Serializable
 data class GreetingSettings(
     val enabled: Boolean,
     val text: String,
@@ -176,8 +187,10 @@ data class GreetingSettings(
     val imageFirst: Boolean = true
 )
 
+@kotlinx.serialization.Serializable
 data class UpdateInfo(val hasUpdate: Boolean, val newVersion: String, val htmlUrl: String)
 
+@kotlinx.serialization.Serializable
 data class OrderDetails(
     val id: String,
     val status: String,
@@ -199,6 +212,7 @@ data class OrderDetails(
     val buyerId: String = ""
 )
 
+@kotlinx.serialization.Serializable
 data class ChatInfo(
     val lookingAtLink: String?,
     val lookingAtName: String?,
@@ -209,6 +223,7 @@ data class ChatInfo(
     val peerUserId: String? = null
 )
 
+@kotlinx.serialization.Serializable
 data class BanInfo(val reason: String)
 
 object LogManager {
@@ -370,6 +385,7 @@ class FunPayRepository(private val context: Context, val targetAccountId: String
         loadOutgoingFromPrefs(context)
     }
 
+    @kotlinx.serialization.Serializable
     private data class ProcessedEvent(
         val chatId: String,
         val orderId: String,
@@ -3053,6 +3069,7 @@ ${if (reviewTextLine.isNotEmpty()) "$reviewTextLine\n" else ""}
         return FpFinance.frozen(cachedTransactions.values)
     }
 
+    @kotlinx.serialization.Serializable
     data class OrderSummaryItem(
         val orderId: String,
         val title: String,
@@ -3108,6 +3125,7 @@ ${if (reviewTextLine.isNotEmpty()) "$reviewTextLine\n" else ""}
             }
         }
 
+    @kotlinx.serialization.Serializable
     data class SaleItem(
         val orderId: String,
         val title: String,        
@@ -3124,6 +3142,7 @@ ${if (reviewTextLine.isNotEmpty()) "$reviewTextLine\n" else ""}
         val category: String      
     )
 
+    @kotlinx.serialization.Serializable
     data class SalesStats(
         val totalRevenue: Double,
         val totalOrders: Int,
@@ -4697,6 +4716,7 @@ ${if (reviewTextLine.isNotEmpty()) "$reviewTextLine\n" else ""}
     }
 }
 
+@kotlinx.serialization.Serializable
 data class UserProfile(
     val id: String,
     val username: String,
@@ -5083,6 +5103,7 @@ private fun IncomingCallScreen(
     }
 }
 
+@kotlinx.serialization.Serializable
 data class PaymentMethod(
     val id: String,          
     val title: String,       
@@ -5091,6 +5112,7 @@ data class PaymentMethod(
     val unit: String         
 )
 
+@kotlinx.serialization.Serializable
 data class LotPreview(
     val offerId: String,
     val title: String,
@@ -5110,6 +5132,7 @@ data class LotPreview(
     val balanceUsd: Double = 0.0
 )
 
+@kotlinx.serialization.Serializable
 data class DraftOrder(
     val csrfToken: String,
     val type: String,
@@ -5125,7 +5148,9 @@ data class DraftOrder(
 )
 
 sealed class OrderNewResult {
+    @kotlinx.serialization.Serializable
     data class Redirect(val orderUrl: String, val orderId: String) : OrderNewResult()
+    @kotlinx.serialization.Serializable
     data class Error(val message: String) : OrderNewResult()
 }
 

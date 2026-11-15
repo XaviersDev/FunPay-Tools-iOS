@@ -91,6 +91,7 @@ val AOS_THEME_NAMES = listOf(
     "Plasma", "Zen", "Inferno", "Arctic", "Prism"
 )
 
+@kotlinx.serialization.Serializable
 enum class AosWidgetType(val title: String) {
     TIME("Время"), DATE("Дата"), BALANCE("Общий Баланс"),
     ACTIVE_BALANCE("Доступно"), FROZEN_BALANCE("В холде"),
@@ -98,6 +99,7 @@ enum class AosWidgetType(val title: String) {
     ONLINE("Статус Онлайн"), AVATAR("Аватарка")
 }
 
+@kotlinx.serialization.Serializable
 data class AosWidget(
     val id: String = UUID.randomUUID().toString(),
     val type: AosWidgetType,
@@ -106,6 +108,7 @@ data class AosWidget(
     var scale: Float = 1f
 )
 
+@kotlinx.serialization.Serializable
 data class AosConfig(
     val themeIndex: Int = 1,
     val hexColor: String = "#00BFA5",
@@ -116,6 +119,7 @@ data class AosConfig(
     val widgets: List<AosWidget> = emptyList()
 )
 
+@kotlinx.serialization.Serializable
 data class AosThemeData(
     val time: String, val date: String, val balanceAll: String,
     val balanceActive: String, val balanceFrozen: String,

@@ -110,8 +110,10 @@ val StickerIcon: androidx.compose.ui.graphics.vector.ImageVector by lazy {
     }.build()
 }
 
+@kotlinx.serialization.Serializable
 data class StickerItem(val file: String, val emoji: String = "")
 
+@kotlinx.serialization.Serializable
 data class StickerPack(
     val id: String,
     val title: String,
@@ -303,9 +305,12 @@ object StickerStore {
     }
 }
 
+@kotlinx.serialization.Serializable
 private data class StickerCell(val pack: StickerPack, val item: StickerItem)
 private sealed class GridEntry {
+    @kotlinx.serialization.Serializable
     data class Header(val title: String, val key: String) : GridEntry()
+    @kotlinx.serialization.Serializable
     data class Cell(val cell: StickerCell, val key: String) : GridEntry()
 }
 

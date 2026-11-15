@@ -371,7 +371,7 @@ class Paint(flags: Int = 0) {
 
     fun ascent(): Float = font().metrics.ascent
     fun descent(): Float = font().metrics.descent
-    fun getFontSpacing(): Float = font().spacing
+    @kotlin.jvm.JvmName("getFontSpacingFn") fun getFontSpacing(): Float = font().spacing
     val fontSpacing: Float get() = font().spacing
     val fontMetrics: FontMetrics get() = font().metrics.let { FontMetrics(it.top, it.ascent, it.descent, it.bottom, it.leading) }
     fun getFontMetrics(fm: FontMetrics?): Float { val m = font().metrics; fm?.apply { top = m.top; ascent = m.ascent; descent = m.descent; bottom = m.bottom; leading = m.leading }; return m.descent - m.ascent + m.leading }
@@ -429,7 +429,7 @@ class Canvas internal constructor(internal val sk: org.jetbrains.skia.Canvas) {
             var cx = x + dx
             val extra = p.letterSpacing * p.textSize
             val sp = p.sk()
-            for (cp in text.codePoints()) {
+            for (cp in text.codePointsList()) {
                 val s = codePointToString(cp)
                 val tl = TextLine.make(s, font)
                 sk.drawTextLine(tl, cx, y, sp)

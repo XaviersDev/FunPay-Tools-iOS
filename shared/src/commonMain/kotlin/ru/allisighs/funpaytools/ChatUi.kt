@@ -84,6 +84,7 @@ object ChatDates {
     )
 
     /** dayKey = yyyy*10000 + MM*100 + dd (MM 1..12) */
+    @kotlinx.serialization.Serializable
     data class MsgDate(val dayKey: Int?, val hhmm: String)
 
     private fun todayKey(offsetDays: Int = 0): Int {
@@ -166,6 +167,7 @@ object ChatDates {
     }
 }
 
+@kotlinx.serialization.Serializable
 data class ChatRow(
     val key: String,
     val msg: ParsedMessage? = null,

@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 
+@kotlinx.serialization.Serializable
 data class EpicNickConfig(
     val c1: String,
     val c2: String,

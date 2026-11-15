@@ -18,8 +18,10 @@ import androidx.compose.ui.graphics.Color
  * STATIC — без движения.
  * PARALLAX — лёгкое смещение картинки при наклоне телефона (как темы Telegram).
  */
+@kotlinx.serialization.Serializable
 enum class WallpaperEffect { STATIC, PARALLAX }
 
+@kotlinx.serialization.Serializable
 data class AppTheme(
     val name: String,
     val primaryColor: String,

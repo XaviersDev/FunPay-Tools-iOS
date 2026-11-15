@@ -52,6 +52,7 @@ object FpDates {
 }
 
 /** Операция со страницы «Финансы» (users/transactions). */
+@kotlinx.serialization.Serializable
 data class FpTransaction(
     val id: String,
     val title: String,
@@ -68,6 +69,7 @@ data class FpTransaction(
 )
 
 /** Деньги в заморозке по данным «Финансов». */
+@kotlinx.serialization.Serializable
 data class FrozenFunds(
     val byCurrency: Map<String, Double>,
     /** операции в ожидании и примерное время разморозки, по возрастанию */

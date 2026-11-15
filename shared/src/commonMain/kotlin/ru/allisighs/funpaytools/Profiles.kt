@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.fleeksoft.ksoup.Ksoup
 
+@kotlinx.serialization.Serializable
 data class FunPayUserProfile(
     val userId: String,
     val username: String,
@@ -49,12 +50,14 @@ data class FunPayUserProfile(
     val continueToken: String? 
 )
 
+@kotlinx.serialization.Serializable
 data class ProfileOfferGroup(
     val categoryName: String,
     val categoryUrl: String,
     val offers: List<ProfileOffer>
 )
 
+@kotlinx.serialization.Serializable
 data class ProfileOffer(
     val id: String,
     val title: String,
@@ -63,6 +66,7 @@ data class ProfileOffer(
     val url: String
 )
 
+@kotlinx.serialization.Serializable
 data class ProfileReview(
     val rating: Int,
     val text: String,
@@ -73,11 +77,14 @@ data class ProfileReview(
 
 sealed class ProfileUiState {
     object Loading : ProfileUiState()
+    @kotlinx.serialization.Serializable
     data class Success(val profile: FunPayUserProfile) : ProfileUiState()
+    @kotlinx.serialization.Serializable
     data class Error(val message: String) : ProfileUiState()
 }
 
 
+@kotlinx.serialization.Serializable
 enum class SubmitState {
     IDLE, LOADING, SUCCESS, ERROR
 }

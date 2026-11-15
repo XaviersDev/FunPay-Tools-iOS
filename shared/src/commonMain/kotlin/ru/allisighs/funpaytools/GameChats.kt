@@ -72,6 +72,7 @@ import kotlinx.coroutines.launch
 
 
 
+@kotlinx.serialization.Serializable
 data class GameChat(
     @SerializedName("name") val name: String = "",
     @SerializedName("chat_url") val chatUrl: String = "",
@@ -126,6 +127,7 @@ data class GameChat(
     }
 }
 
+@kotlinx.serialization.Serializable
 enum class GameChatGroup(val title: String) {
     ALL("Все"),
     ITEMS("Предметы"),
@@ -261,6 +263,7 @@ object GameChatsRegistry {
 
 
 
+@kotlinx.serialization.Serializable
 enum class ChatListMode { PERSONAL, GAMES, GLOBAL }
 
 @Composable

@@ -40,6 +40,7 @@ import kotlin.math.abs
 
 
 
+@kotlinx.serialization.Serializable
 data class DumperLotConfig(
     val id: String = UUID.randomUUID().toString(),
     val lotId: String = "",
@@ -76,6 +77,7 @@ data class DumperLotConfig(
     val sortOrder: Int = 0
 )
 
+@kotlinx.serialization.Serializable
 data class DumperSettings(
     val enabled: Boolean = false,
     val exchangeRateSource: String = "manual",
@@ -92,8 +94,10 @@ data class DumperSettings(
 
 
 
+@kotlinx.serialization.Serializable
 enum class MarketAction { LOWER, RAISE, HOLD, ERROR, FIELD_ERROR }
 
+@kotlinx.serialization.Serializable
 data class FeedEvent(
     val lotId: String,
     val lotName: String,

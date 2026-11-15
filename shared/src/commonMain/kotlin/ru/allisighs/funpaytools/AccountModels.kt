@@ -11,6 +11,7 @@
 package ru.allisighs.funpaytools
 
 
+@kotlinx.serialization.Serializable
 data class Account(
     @SerializedName("id") val id: String = UUID.randomUUID().toString(),
     @SerializedName("golden_key") val goldenKey: String,
@@ -30,11 +31,13 @@ data class Account(
     @SerializedName("proxy_password") val proxyPassword: String? = ""
 )
 
+@kotlinx.serialization.Serializable
 data class AccountsData(
     @SerializedName("accounts") val accounts: List<Account> = emptyList(),
     @SerializedName("active_account_id") val activeAccountId: String? = null
 )
 
+@kotlinx.serialization.Serializable
 data class AutoTicketSettings(
     @SerializedName("enabled") val enabled: Boolean = false,
     @SerializedName("order_age_hours") val orderAgeHours: Int = 24,
@@ -47,12 +50,14 @@ data class AutoTicketSettings(
     @SerializedName("last_run_at") val lastRunAt: Long = 0L
 )
 
+@kotlinx.serialization.Serializable
 data class AutoTicketResult(
     val ticketsCreated: Int,
     val ordersProcessed: Int,
     val errorMessage: String?
 )
 
+@kotlinx.serialization.Serializable
 data class OrderReminderSettings(
     @SerializedName("enabled") val enabled: Boolean = false,
     @SerializedName("delay_hours") val delayHours: Int = 4,
@@ -60,6 +65,7 @@ data class OrderReminderSettings(
         "⚠️ \$username, Вы забыли подтвердить заказ.\n\n⚡ Заказ выполнен. Пожалуйста, зайдите в раздел «Покупки», выберите его в списке и нажмите кнопку «Подтвердить выполнение заказа».\n\n⭐ Спасибо."
 )
 
+@kotlinx.serialization.Serializable
 data class PendingOrderReminder(
     @SerializedName("order_id") val orderId: String,
     @SerializedName("chat_id") val chatId: String,

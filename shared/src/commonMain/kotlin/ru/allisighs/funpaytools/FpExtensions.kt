@@ -37,6 +37,7 @@ import kotlinx.coroutines.withContext
 object FpPlaceholders {
 
     /** Контекст заказа для подстановки. Все поля опциональны. */
+    @kotlinx.serialization.Serializable
     data class OrderCtx(
         val orderId: String? = null,
         val lotName: String? = null,
@@ -305,6 +306,7 @@ object SmartRaise {
  *    для всех правил, чтобы не отправлять два разных бонуса на один заказ.
  * -------------------------------------------------------------------------
  */
+@kotlinx.serialization.Serializable
 data class FeedbackBonusRule(
     @SerializedName("id") val id: String = UUID.randomUUID().toString(),
     val name: String = "Новый бонус",
@@ -328,6 +330,7 @@ data class FeedbackBonusRule(
 /**
  * Верхнеуровневый контейнер для всех бонусных правил + общий enable-флаг.
  */
+@kotlinx.serialization.Serializable
 data class FeedbackBonusSettings(
     val enabled: Boolean = false,
     val rules: List<FeedbackBonusRule> = emptyList()
@@ -348,6 +351,7 @@ data class FeedbackBonusSettings(
  */
 object LotUrlParser {
 
+    @kotlinx.serialization.Serializable
     data class LotRef(
         /** Тип лота: "lot" для обычных, "chip" для чипов (chips/offer?id=...). */
         val kind: String,
@@ -459,6 +463,7 @@ object FpTranslate {
      *   - эмодзи / всё > U+007F, не относящееся к кириллице;
      *   - одинокие \r\n не трогаем (их Google обрабатывает нормально).
      */
+    @kotlinx.serialization.Serializable
     internal data class Protected(val safeText: String, val tokens: List<String>)
 
     private fun protectSpecials(input: String): Protected {

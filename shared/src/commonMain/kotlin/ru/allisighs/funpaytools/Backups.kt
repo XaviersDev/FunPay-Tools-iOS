@@ -42,6 +42,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+@kotlinx.serialization.Serializable
 data class BackupData(
     @SerializedName("version")
     val version: Int = 3,
@@ -62,6 +63,7 @@ data class BackupData(
     val settings: FullBackupSettings
 )
 
+@kotlinx.serialization.Serializable
 data class FullBackupSettings(
     @SerializedName("auto_response")
     val autoResponse: Boolean = false,

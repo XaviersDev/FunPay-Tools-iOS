@@ -260,6 +260,7 @@ object WallpaperPalette {
     private fun toHexArgb(c: Int): String = String.format("#%08X", c.toLong() and 0xFFFFFFFFL)
 }
 
+@kotlinx.serialization.Serializable
 data class GeneratedPalette(
     val primaryHex: String,
     val secondaryHex: String,

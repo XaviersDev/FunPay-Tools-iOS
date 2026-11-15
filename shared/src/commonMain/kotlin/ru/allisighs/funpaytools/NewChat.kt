@@ -40,6 +40,7 @@ import kotlinx.coroutines.withContext
  *   3) FunPay сам создаёт диалог при открытии такого чата.
  * ==========================================================================*/
 
+@kotlinx.serialization.Serializable
 data class FoundUser(
     val id: String,
     val username: String,

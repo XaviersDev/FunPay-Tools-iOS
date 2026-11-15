@@ -50,6 +50,7 @@ import kotlinx.coroutines.withContext
 import com.fleeksoft.ksoup.Ksoup
 
 
+@kotlinx.serialization.Serializable
 data class FeedReviewItem(
     val id: String,
     val sellerName: String,

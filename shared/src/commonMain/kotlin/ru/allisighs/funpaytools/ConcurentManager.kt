@@ -24,6 +24,7 @@ import kotlin.random.Random
  * Одна "игра" / назначение публикации. По сути — это пара (название, nodeId общего чата).
  * nodeId парсится из URL вида https://funpay.com/chat/?node=XXX
  */
+@kotlinx.serialization.Serializable
 data class ConcurentGame(
     val id: String = UUID.randomUUID().toString(),
     val name: String = "Общий чат",
@@ -33,6 +34,7 @@ data class ConcurentGame(
 )
 
 /** Одно рекламное сообщение (текст). Плейсхолдеры поддерживаются (см. processTemplateVariables). */
+@kotlinx.serialization.Serializable
 data class ConcurentMessage(
     val id: String = UUID.randomUUID().toString(),
     val text: String = "",
@@ -43,6 +45,7 @@ data class ConcurentMessage(
 )
 
 /** Статистика: кольцевой буфер событий за сутки, чтобы рисовать график/счётчик. */
+@kotlinx.serialization.Serializable
 data class ConcurentStatEvent(
     val timestamp: Long,
     val success: Boolean,
@@ -50,6 +53,7 @@ data class ConcurentStatEvent(
 )
 
 /** Главные настройки Concurent. Всё хранится как JSON в funpay_prefs. */
+@kotlinx.serialization.Serializable
 data class ConcurentSettings(
     val enabled: Boolean = false,
 
@@ -269,6 +273,7 @@ object ConcurentManager {
         return null
     }
 
+    @kotlinx.serialization.Serializable
     data class NextPick(
         val game: ConcurentGame,
         val message: ConcurentMessage,

@@ -34,7 +34,7 @@ interface ValueEventListener {
 class DataSnapshot(val key: String?, internal val raw: Any?) {
     fun exists(): Boolean = raw != null && raw != JSONObject.NULL
     val value: Any? get() = raw
-    fun getValue(): Any? = raw
+    @kotlin.jvm.JvmName("getValueFn") fun getValue(): Any? = raw
     inline fun <reified T : Any> getValue(cls: KClass<T>): T? = try {
         if (!exists()) null else gsonDecode<T>(gsonJson, jsonText(), kotlin.reflect.typeOf<T>())
     } catch (e: Exception) { null }

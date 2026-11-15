@@ -31,6 +31,7 @@ import kotlinx.coroutines.*
 
 
 
+@kotlinx.serialization.Serializable
 enum class PremiumFeature(
     val displayName: String,
     val description: String,
@@ -119,6 +120,7 @@ private val PREMIUM_ROUTES: Map<String, PremiumFeature> = mapOf(
 
 
 
+@kotlinx.serialization.Serializable
 data class LicenseData(
     val key: String = "",
     val deviceId: String = "",
@@ -129,6 +131,7 @@ data class LicenseData(
 )
 
 sealed class LicenseState {
+    @kotlinx.serialization.Serializable
     data class Active(val expiresAt: Long, val key: String) : LicenseState()
     object None    : LicenseState()
     object Revoked : LicenseState()

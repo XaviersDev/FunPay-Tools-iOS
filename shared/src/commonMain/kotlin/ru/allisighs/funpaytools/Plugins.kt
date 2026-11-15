@@ -46,6 +46,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import com.fleeksoft.ksoup.Ksoup
 
+@kotlinx.serialization.Serializable
 data class PluginMeta(
     val id: String = UUID.randomUUID().toString(),
     val name: String,

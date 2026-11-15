@@ -183,6 +183,7 @@ fun getSystemFonts(): List<SystemFontInfo> {
 
 
 
+@kotlinx.serialization.Serializable
 data class DynAvatarElement(
     val id: String = UUID.randomUUID().toString(),
     val type: String,
@@ -206,6 +207,7 @@ data class DynAvatarElement(
     val glassBlurRadius: Float = 15f
 )
 
+@kotlinx.serialization.Serializable
 data class AutoGoalSettings(
     val enabled: Boolean = false,
     val currentGoal: Int = 0,
@@ -213,6 +215,7 @@ data class AutoGoalSettings(
     val lastKnownReviews: Int = 0
 )
 
+@kotlinx.serialization.Serializable
 data class DynamicAvatarSettings(
     val enabled: Boolean = false,
     val updateIntervalMinutes: Int = 5,
@@ -1621,6 +1624,7 @@ fun StatMiniCard(modifier: Modifier = Modifier, title: String, value: String, ic
     }
 }
 
+@kotlinx.serialization.Serializable
 private enum class DonateDialogStep { NONE, FAKE_LOADING, CANCEL_CONFIRM, REALLY_SURE, CONFESSION }
 
 @Composable

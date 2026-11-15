@@ -88,7 +88,7 @@ class TimeZone private constructor(val id: String) {
 
 // ---------- Date ----------
 open class Date(var time: Long = System.currentTimeMillis()) : Comparable<Date> {
-    fun getTime(): Long = time
+    @kotlin.jvm.JvmName("getTimeFn") fun getTime(): Long = time
     fun before(other: Date) = time < other.time
     fun after(other: Date) = time > other.time
     override fun compareTo(other: Date) = time.compareTo(other.time)
@@ -113,10 +113,10 @@ class Calendar private constructor(var timeZone: TimeZone) {
         get() = Date(timeInMillis)
         set(v) { timeInMillis = v.time }
 
-    fun getTime(): Date = Date(timeInMillis)
-    fun setTime(d: Date) { timeInMillis = d.time }
-    fun setTimeInMillis(ms: Long) { timeInMillis = ms }
-    fun getTimeInMillis(): Long = timeInMillis
+    @kotlin.jvm.JvmName("getTimeFn") fun getTime(): Date = Date(timeInMillis)
+    @kotlin.jvm.JvmName("setTimeFn") fun setTime(d: Date) { timeInMillis = d.time }
+    @kotlin.jvm.JvmName("setTimeInMillisFn") fun setTimeInMillis(ms: Long) { timeInMillis = ms }
+    @kotlin.jvm.JvmName("getTimeInMillisFn") fun getTimeInMillis(): Long = timeInMillis
 
     private fun ldt(): LocalDateTime = Instant.fromEpochMilliseconds(timeInMillis).toLocalDateTime(timeZone.kz)
     private fun setLdt(l: LocalDateTime) { timeInMillis = l.toInstant(timeZone.kz).toEpochMilliseconds() }
@@ -302,8 +302,8 @@ open class SimpleDateFormat(private val pattern: String, private val locale: Loc
     var timeZone: TimeZone = TimeZone.getDefault()
     var isLenient: Boolean = true
 
-    fun setTimeZone(tz: TimeZone) { timeZone = tz }
-    fun getTimeZone(): TimeZone = timeZone
+    @kotlin.jvm.JvmName("setTimeZoneFn") fun setTimeZone(tz: TimeZone) { timeZone = tz }
+    @kotlin.jvm.JvmName("getTimeZoneFn") fun getTimeZone(): TimeZone = timeZone
 
     private sealed class Tok {
         class Lit(val s: String) : Tok()

@@ -55,6 +55,7 @@ import kotlinx.coroutines.withContext
  *  Удалённый выключатель: public-chat.json в репозитории расширения.
  * ==========================================================================*/
 
+@kotlinx.serialization.Serializable
 data class GlobalChatMessage(
     val id: String,
     val ts: Long,
@@ -65,6 +66,7 @@ data class GlobalChatMessage(
     val pro: String = ""
 )
 
+@kotlinx.serialization.Serializable
 data class GlobalChatConfig(
     val active: Boolean = true,
     val display: Boolean = true,
@@ -165,7 +167,9 @@ object GlobalChatApi {
 private sealed class GcGate {
     object None : GcGate()
     object Starting : GcGate()
+    @kotlinx.serialization.Serializable
     data class Waiting(val code: String, val status: String = "Ожидаю подтверждения…") : GcGate()
+    @kotlinx.serialization.Serializable
     data class Error(val message: String) : GcGate()
 }
 

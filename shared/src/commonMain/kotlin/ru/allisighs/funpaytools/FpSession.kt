@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * ============================================================================
  */
 
+@kotlinx.serialization.Serializable
 data class StoredCookie(
     val name: String = "",
     val value: String = "",
@@ -312,6 +313,7 @@ class FpSessionInterceptor : Interceptor {
     }
 }
 
+@kotlinx.serialization.Serializable
 data class SessionLostInfo(
     val goldenKeyHash: String,
     val accountId: String?,

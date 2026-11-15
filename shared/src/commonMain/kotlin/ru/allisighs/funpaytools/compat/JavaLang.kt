@@ -193,7 +193,7 @@ fun String.codePointAt(index: Int): Int {
     return c.code
 }
 
-fun String.codePoints(): List<Int> {
+fun String.codePointsList(): List<Int> {
     val out = ArrayList<Int>()
     var i = 0
     while (i < length) {
@@ -204,7 +204,7 @@ fun String.codePoints(): List<Int> {
     return out
 }
 
-fun String.codePointCount(begin: Int, end: Int): Int = substring(begin, end).codePoints().size
+fun String.codePointCount(begin: Int, end: Int): Int = substring(begin, end).codePointsList().size
 
 fun String.offsetByCodePoints(index: Int, offset: Int): Int {
     var i = index

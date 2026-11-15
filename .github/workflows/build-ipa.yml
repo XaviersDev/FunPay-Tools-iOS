@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: build-ipa-${{ github.ref }}
   cancel-in-progress: true
@@ -42,17 +45,24 @@ jobs:
       - name: Build app
         run: |
           cd iosApp
+          set -o pipefail
           xcodebuild -project FunPayTools.xcodeproj -scheme FunPayTools \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            build | tail -n 60
+            build 2>&1 | grep -E "error:|warning: .*Swift|\*\* BUILD" || true
           test -d build/Build/Products/Release-iphoneos/FunPayTools.app
 
-      - name: Package IPA
+      - name: Package IPA (ad-hoc signed with entitlements for re-signing tools)
         run: |
           mkdir -p out/Payload
           cp -R iosApp/build/Build/Products/Release-iphoneos/FunPayTools.app out/Payload/
+          APP=out/Payload/FunPayTools.app
+          if [ -d "$APP/PlugIns/FunPayWidgets.appex" ]; then
+            codesign --force --sign - --entitlements iosApp/Widget/Widget.entitlements "$APP/PlugIns/FunPayWidgets.appex"
+          fi
+          codesign --force --sign - --entitlements iosApp/iosApp/App.entitlements "$APP"
+          ls -la "$APP" "$APP/PlugIns" || true
           cd out && zip -qry FunPayTools.ipa Payload && ls -la
 
       - uses: actions/upload-artifact@v4
@@ -60,3 +70,14 @@ jobs:
           name: FunPayTools-ipa
           path: out/FunPayTools.ipa
           retention-days: 30
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VER=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" out/Payload/FunPayTools.app/Info.plist)
+          TAG="ios-v${VER}-build${{ github.run_number }}"
+          gh release create "$TAG" out/FunPayTools.ipa \
+            --title "FunPay Tools iOS ${VER} (build ${{ github.run_number }})" \
+            --notes "Неподписанный .ipa. Установка: Sideloadly / AltStore / ESign / TrollStore (подпишут своим сертификатом)." \
+            --latest

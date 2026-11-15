@@ -355,7 +355,6 @@ interface SharedPreferences {
     fun contains(key: String): Boolean
     fun edit(): Editor
     val all: Map<String, *>
-    fun getAll(): Map<String, *> = all
     fun registerOnSharedPreferenceChangeListener(l: OnSharedPreferenceChangeListener)
     fun unregisterOnSharedPreferenceChangeListener(l: OnSharedPreferenceChangeListener)
 
@@ -577,9 +576,9 @@ class Uri private constructor(private val raw: String) : Comparable<Uri> {
     }
 
     fun getBooleanQueryParameter(key: String, def: Boolean): Boolean = getQueryParameter(key)?.let { it != "false" && it != "0" } ?: def
-    fun getScheme() = scheme
-    fun getHost() = host
-    fun getPath() = path
+    @kotlin.jvm.JvmName("getSchemeFn") fun getScheme() = scheme
+    @kotlin.jvm.JvmName("getHostFn") fun getHost() = host
+    @kotlin.jvm.JvmName("getPathFn") fun getPath() = path
 
     fun buildUpon(): Builder = Builder().also { it.base = raw }
     fun normalizeScheme(): Uri = scheme?.let { s -> Uri(s.lowercase() + raw.substring(s.length)) } ?: this
@@ -713,7 +712,7 @@ open class Intent() {
     fun setClassName(ctx: Context, cls: String): Intent { component = ComponentName("ru.allisighs.funpaytools", cls); return this }
     fun setClass(ctx: Context, cls: KClass<*>): Intent { component = ComponentName(ctx, cls); return this }
     fun addCategory(c: String): Intent { categories.add(c); return this }
-    fun getPackage(): String? = `package`
+    @kotlin.jvm.JvmName("getPackageFn") fun getPackage(): String? = `package`
 
     fun putExtra(k: String, v: String?): Intent { extrasBundle.map[k] = v; return this }
     fun putExtra(k: String, v: CharSequence?): Intent { extrasBundle.map[k] = v; return this }
@@ -1085,7 +1084,7 @@ object ClipboardManager {
         return PlatformBridge.getClipboard()?.let { ClipData.newPlainText("", it) }
     }
     fun hasPrimaryClip(): Boolean = PlatformBridge.getClipboard() != null
-    fun getPrimaryClip(): ClipData? = primaryClip
+    @kotlin.jvm.JvmName("getPrimaryClipFn") fun getPrimaryClip(): ClipData? = primaryClip
     fun clearPrimaryClip() { PlatformBridge.setClipboard("") }
     var text: CharSequence?
         get() = PlatformBridge.getClipboard()

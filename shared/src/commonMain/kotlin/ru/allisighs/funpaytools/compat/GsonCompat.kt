@@ -16,7 +16,20 @@ import kotlin.reflect.KClass
 import kotlin.reflect.KType
 import kotlin.reflect.typeOf
 
+object AnyJsonSerializer : KSerializer<Any> {
+    override val descriptor = JsonElement.serializer().descriptor
+    override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: Any) {
+        val je = encoder as? kotlinx.serialization.json.JsonEncoder ?: throw kotlinx.serialization.SerializationException("JSON only")
+        je.encodeJsonElement(dynamicToJson(je.json, value))
+    }
+    override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): Any {
+        val jd = decoder as? kotlinx.serialization.json.JsonDecoder ?: throw kotlinx.serialization.SerializationException("JSON only")
+        return dynamicFromJson(jd.decodeJsonElement()) ?: ""
+    }
+}
+
 val gsonJson = Json {
+    serializersModule = kotlinx.serialization.modules.SerializersModule { contextual(Any::class, AnyJsonSerializer) }
     ignoreUnknownKeys = true
     encodeDefaults = true
     explicitNulls = false
@@ -64,7 +77,10 @@ class GsonBuilder {
 @Suppress("UNCHECKED_CAST")
 fun <T> gsonDecode(json: Json, text: String?, type: KType): T {
     if (text == null || text.isBlank() || text.trim() == "null") return null as T
-    val ser = try { serializer(type) } catch (e: Exception) { null }
+    val ser = try { json.serializersModule.serializer(type) } catch (e: Exception) {
+        if (type.classifier != Map::class && type.classifier != List::class && type.classifier != Any::class) println("⚠️ Gson compat: no serializer for $type")
+        null
+    }
     return try {
         if (ser != null) json.decodeFromString(ser, text) as T
         else dynamicFromJson(json.parseToJsonElement(text)) as T
@@ -75,7 +91,7 @@ fun <T> gsonDecode(json: Json, text: String?, type: KType): T {
 
 fun <T> gsonEncode(json: Json, value: T, type: KType): String {
     if (value == null) return "null"
-    val ser = try { serializer(type) } catch (e: Exception) { null }
+    val ser = try { json.serializersModule.serializer(type) } catch (e: Exception) { null }
     if (ser != null) {
         try {
             @Suppress("UNCHECKED_CAST")

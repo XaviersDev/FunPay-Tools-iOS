@@ -67,3 +67,13 @@ compose.desktop {
         mainClass = "ru.allisighs.funpaytools.DesktopMainKt"
     }
 }
+
+tasks.register<JavaExec>("snapshot") {
+    dependsOn("jvmMainClasses")
+    val jvmTarget = kotlin.targets.getByName("jvm")
+    val comp = jvmTarget.compilations.getByName("main")
+    classpath = files(comp.output.allOutputs, comp.runtimeDependencyFiles)
+    mainClass.set("ru.allisighs.funpaytools.SnapshotKt")
+    args = (project.findProperty("snapArgs") as String? ?: "root").split(",")
+    jvmArgs("-Djava.awt.headless=true", "-Dsnap.dir=/tmp/snaps")
+}

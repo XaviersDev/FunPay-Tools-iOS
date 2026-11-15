@@ -17,6 +17,7 @@ import kotlinx.coroutines.withContext
 import com.fleeksoft.ksoup.Ksoup as JsoupParser
 import com.fleeksoft.ksoup.Ksoup
 
+@kotlinx.serialization.Serializable
 data class SupportTicket(
     val id: String,
     val title: String,
@@ -25,12 +26,14 @@ data class SupportTicket(
     val unreadCount: Int = 0
 )
 
+@kotlinx.serialization.Serializable
 data class TicketAttachment(
     val name: String,
     val url: String,
     val isImage: Boolean
 )
 
+@kotlinx.serialization.Serializable
 data class TicketComment(
     val author: String,
     val text: String,
@@ -41,6 +44,7 @@ data class TicketComment(
     val avatarUrl: String = ""
 )
 
+@kotlinx.serialization.Serializable
 data class TicketDetails(
     val id: String,
     val title: String,
@@ -52,11 +56,13 @@ data class TicketDetails(
     val canReply: Boolean = true
 )
 
+@kotlinx.serialization.Serializable
 data class TicketCategory(
     val id: String,
     val name: String
 )
 
+@kotlinx.serialization.Serializable
 data class TicketField(
     val id: String,
     val name: String,
@@ -67,6 +73,7 @@ data class TicketField(
     val defaultValue: String = ""
 )
 
+@kotlinx.serialization.Serializable
 data class TicketFieldOption(
     val value: String,
     val text: String

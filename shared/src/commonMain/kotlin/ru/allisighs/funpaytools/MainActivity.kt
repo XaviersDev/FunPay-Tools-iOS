@@ -130,6 +130,7 @@ import kotlinx.coroutines.withContext
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
+@kotlinx.serialization.Serializable
 data class ParsedMessage(
     val id: String,
     val author: String,
@@ -153,12 +154,14 @@ data class ParsedMessage(
 
 private val REPLY_FORMAT = Regex("^╭─\\s*⤸\\s?([\\s\\S]*?)\\n╰\\s?([\\s\\S]*)$")
 
+@kotlinx.serialization.Serializable
 data class MessageLink(
     val text: String,
     val url: String,
     val type: LinkType
 )
 
+@kotlinx.serialization.Serializable
 enum class LinkType {
     ORDER, USER, LOT, EXTERNAL
 }
@@ -9238,12 +9241,14 @@ fun ImprovedCopyableField(
     }
 }
 
+@kotlinx.serialization.Serializable
 data class ChatLabel(
     @SerializedName("id") val id: String = UUID.randomUUID().toString(),
     @SerializedName("name") val name: String = "",
     @SerializedName("color") val color: String = "#7C4DFF"
 )
 
+@kotlinx.serialization.Serializable
 data class ChatFolder(
     @SerializedName("id") val id: String = UUID.randomUUID().toString(),
     @SerializedName("name") val name: String = "",
@@ -9252,6 +9257,7 @@ data class ChatFolder(
     @SerializedName("presetType") val presetType: String? = null
 )
 
+@kotlinx.serialization.Serializable
 data class BusyModeSettings(
     @SerializedName("enabled") val enabled: Boolean = false,
     @SerializedName("message") val message: String = "Я сейчас занят, отвечу позже",
@@ -9270,6 +9276,7 @@ data class BusyModeSettings(
     @SerializedName("autoDeliveryMessage") val autoDeliveryMessage: String = "Спасибо за заказ! Товар уже выдан автоматически. Если возникнут вопросы — отвечу, как освобожусь."
 )
 
+@kotlinx.serialization.Serializable
 data class FloodChatSettings(
     @SerializedName("enabled") val enabled: Boolean = false,
     @SerializedName("pinFirst") val pinFirst: Boolean = false,
@@ -9277,6 +9284,7 @@ data class FloodChatSettings(
     @SerializedName("customDisplayName") val customDisplayName: String = "Флудилка"
 )
 
+@kotlinx.serialization.Serializable
 data class BusyScheduleSlot(
     @SerializedName("id") val id: String = UUID.randomUUID().toString(),
     @SerializedName("name") val name: String = "Рабочее время",
@@ -9289,6 +9297,7 @@ data class BusyScheduleSlot(
     @SerializedName("cooldownMinutes") val cooldownMinutes: Int = 60
 )
 
+@kotlinx.serialization.Serializable
 data class BusyScheduleSettings(
     @SerializedName("enabled") val enabled: Boolean = false,
     @SerializedName("slots") val slots: List<BusyScheduleSlot> = emptyList()
@@ -11554,13 +11563,14 @@ private fun SalesStatCard(
     }
 }
 
+@kotlinx.serialization.Serializable
 data class CatalogPack(
     val id: String = "",
     val created_at: String = "",
     val author: String = "",
     val name: String = "",
     val description: String = "",
-    val pack_data: Map<String, Any> = emptyMap()
+    val pack_data: Map<String, @kotlinx.serialization.Contextual Any> = emptyMap()
 )
 
 object CatalogApiManager {
