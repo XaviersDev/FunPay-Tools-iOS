@@ -1,0 +1,11 @@
+.gradle/
+build/
+*/build/
+.idea/
+.kotlin/
+local.properties
+*.iml
+.DS_Store
+iosApp/iosApp.xcodeproj/
+iosApp/build/
+xcuserdata/
