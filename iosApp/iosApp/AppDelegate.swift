@@ -8,6 +8,7 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        JsEngineRegistry.shared.factory = { SwiftJsEngine() }
         MainViewControllerKt.appDidFinishLaunching()
         WidgetDataBridge.install()
         let window = UIWindow(frame: UIScreen.main.bounds)
@@ -37,7 +38,6 @@ final class RootViewController: UIViewController {
         compose.didMove(toParent: self)
         IosUiBridge.shared.onChange = { [weak self] in
             DispatchQueue.main.async { self?.applyBridge() }
-            return KotlinUnit()
         }
     }
 
@@ -87,7 +87,7 @@ enum WidgetDataBridge {
 
     static func install() {
         WidgetBridge.shared.publisher = { json in
-            guard let defaults = UserDefaults(suiteName: groupId) else { return KotlinUnit() }
+            guard let defaults = UserDefaults(suiteName: groupId) else { return }
             defaults.set(json, forKey: "widget_profile")
             if let data = json.data(using: .utf8),
                let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
@@ -101,7 +101,6 @@ enum WidgetDataBridge {
                 }.resume()
             }
             WidgetCenter.shared.reloadAllTimelines()
-            return KotlinUnit()
         }
     }
 }

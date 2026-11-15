@@ -45,13 +45,12 @@ jobs:
       - name: Build app
         run: |
           cd iosApp
-          set -o pipefail
           xcodebuild -project FunPayTools.xcodeproj -scheme FunPayTools \
             -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' \
             -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            build 2>&1 | grep -E "error:|warning: .*Swift|\*\* BUILD" || true
-          test -d build/Build/Products/Release-iphoneos/FunPayTools.app
+            build > xcodebuild.log 2>&1 || { grep -E "error:|Undefined|ld:" xcodebuild.log | head -80; exit 1; }
+          grep -E "\*\* BUILD" xcodebuild.log
 
       - name: Package IPA (ad-hoc signed with entitlements for re-signing tools)
         run: |

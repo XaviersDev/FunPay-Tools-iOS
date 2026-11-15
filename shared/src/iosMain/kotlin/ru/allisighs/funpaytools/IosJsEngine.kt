@@ -1,39 +1,38 @@
 package ru.allisighs.funpaytools
 
-import platform.Foundation.NSArray
 import platform.Foundation.NSNull
 import platform.Foundation.NSNumber
-import platform.JavaScriptCore.JSContext
-import platform.JavaScriptCore.JSValue
-import platform.JavaScriptCore.setObject
-import platform.JavaScriptCore.objectForKeyedSubscript
+
+/** Native-call callback handed to the Swift JavaScriptCore backend. */
+interface JsNativeHandler {
+    fun call(name: String, args: List<Any?>): Any?
+}
+
+/** Implemented in Swift (JSContext + @convention(block) bridge), registered at launch. */
+interface JsEngineBackend {
+    fun install(handler: JsNativeHandler)
+    fun evaluate(js: String): String?
+    fun close()
+}
+
+object JsEngineRegistry {
+    var factory: (() -> JsEngineBackend)? = null
+}
+
+fun jsLog(message: String) {
+    LogManager.addLog("🧩 JS: $message")
+}
 
 actual class JsEngine actual constructor() {
-    private val ctx = JSContext()
+    private val backend: JsEngineBackend? = JsEngineRegistry.factory?.invoke()
     private var handler: ((String, List<Any?>) -> Any?)? = null
 
     init {
-        ctx.exceptionHandler = { _, exc ->
-            LogManager.addLog("🧩 JS error: ${exc?.toString_()}")
-        }
-        val block: (Any?, Any?) -> Any? = { name, args ->
-            val list: List<Any?> = when (args) {
-                is List<*> -> args.map { normalize(it) }
-                is NSArray -> (0 until args.count.toInt()).map { normalize(args.objectAtIndex(it.toULong())) }
-                else -> emptyList()
-            }
-            val r = handler?.invoke(name?.toString() ?: "", list)
-            when (r) {
-                null -> NSNull()
-                is Boolean -> r
-                is Int -> r
-                is Long -> r.toDouble()
-                is Double -> r
-                is Float -> r.toDouble()
-                else -> r.toString()
-            }
-        }
-        ctx.setObject(block, forKeyedSubscript = "__fptCall" as platform.Foundation.NSString)
+        if (backend == null) LogManager.addLog("⚠️ JS-движок недоступен: плагины не будут работать")
+        backend?.install(object : JsNativeHandler {
+            override fun call(name: String, args: List<Any?>): Any? =
+                handler?.invoke(name, args.map { normalize(it) })
+        })
     }
 
     private fun normalize(v: Any?): Any? = when (v) {
@@ -44,22 +43,6 @@ actual class JsEngine actual constructor() {
     }
 
     actual fun setNativeHandler(handler: (String, List<Any?>) -> Any?) { this.handler = handler }
-
-    actual fun evaluate(js: String): String? {
-        val v: JSValue = ctx.evaluateScript(js) ?: return null
-        return when {
-            v.isUndefined() || v.isNull() -> "null"
-            v.isString() -> JSONObject.quote(v.toString_())
-            v.isBoolean() -> v.toBool().toString()
-            v.isNumber() -> {
-                val d = v.toDouble()
-                if (d == kotlin.math.floor(d) && kotlin.math.abs(d) < 1e15) d.toLong().toString() else d.toString()
-            }
-            else -> v.toString_()
-        }
-    }
-
-    actual fun close() {
-        handler = null
-    }
+    actual fun evaluate(js: String): String? = backend?.evaluate(js)
+    actual fun close() { handler = null; backend?.close() }
 }
