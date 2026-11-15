@@ -587,24 +587,20 @@ fun WelcomeScreen(navController: NavController) {
 fun PermissionsScreen(navController: NavController, repository: FunPayRepository) {
     val context = LocalContext.current
     val hasAuth = repository.hasAuth()
-    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
-
-    val isBatteryOptimizationDisabled = if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.M) {
-        powerManager.isIgnoringBatteryOptimizations(context.packageName)
-    } else {
-        true
-    }
+    val prefs = remember { context.getSharedPreferences("funpay_prefs", Context.MODE_PRIVATE) }
+    var notificationsOn by remember { mutableStateOf(PlatformNotifications.areNotificationsEnabled()) }
+    var keepAlive by remember { mutableStateOf(prefs.getBoolean("ios_background_keepalive", true)) }
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState())) {
         Text(
-            text = "КРИТИЧЕСКИ ВАЖНО",
+            text = "РАБОТА В ФОНЕ",
             fontSize = 24.sp,
             fontWeight = FontWeight.Black,
             color = Color.Red
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Система убивает приложения при выключенном экране. Чтобы автоподнятие и автоответ работали 24/7, вы ОБЯЗАНЫ настроить это вручную.",
+            text = "iOS выгружает приложения, которые свёрнуты. Чтобы автоподнятие, автоответ и онлайн работали, когда вы не в приложении, включите фоновый режим ниже и не закрывайте FunPay Tools свайпом из переключателя приложений.",
             fontSize = 14.sp,
             color = TextPrimary
         )
@@ -613,27 +609,28 @@ fun PermissionsScreen(navController: NavController, repository: FunPayRepository
         Box(modifier = Modifier
             .liquidGlass()
             .clickable {
-                openBatterySettings(context)
+                PlatformNotifications.requestPermission { ok ->
+                    notificationsOn = ok
+                    if (!ok) {
+                        Toast.makeText(context, "Включите уведомления в Настройках iOS", Toast.LENGTH_LONG).show()
+                        PlatformBridge.openAppSettings()
+                    }
+                }
             }
             .padding(16.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
-                    if (isBatteryOptimizationDisabled) Icons.Default.BatteryAlert else Icons.Default.BatteryAlert,
+                    Icons.Default.Notifications,
                     null,
-                    tint = if (isBatteryOptimizationDisabled) Color.Yellow else Color(0xFFFF9800),
+                    tint = if (notificationsOn) Color(0xFF4CAF50) else Color(0xFFFF9800),
                     modifier = Modifier.size(32.dp)
                 )
                 Spacer(modifier = Modifier.width(16.dp))
                 Column(modifier = Modifier.weight(1f)) {
+                    Text("Уведомления", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Text(
-                        text = "Оптимизация батареи",
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        text = "Нажмите → выберите 'Не оптимизировать' или 'Нет ограничений', или перейдите в 'Использование батареи', отключите оптимизацию батареи, разрешите приложению работать в фоне. На каждом ОС названия настроек выглядит по-разному.",
+                        text = if (notificationsOn) "Разрешены" else "Нажмите, чтобы разрешить: новые сообщения, заказы, ответ прямо из уведомления",
                         color = TextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 14.sp
@@ -644,106 +641,58 @@ fun PermissionsScreen(navController: NavController, repository: FunPayRepository
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        Box(modifier = Modifier
-            .liquidGlass()
-            .clickable {
-                openAutoStartSettings(context)
-            }
-            .padding(16.dp)
-        ) {
+        Box(modifier = Modifier.liquidGlass().padding(16.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Default.SettingsPower,
-                    null,
-                    tint = PurpleAccent,
-                    modifier = Modifier.size(32.dp)
-                )
+                Icon(Icons.Default.SettingsPower, null, tint = PurpleAccent, modifier = Modifier.size(32.dp))
                 Spacer(modifier = Modifier.width(16.dp))
-                Column {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Фоновый режим", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     Text(
-                        text = "Автозапуск",
-                        color = TextPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
-                    )
-                    Text(
-                        text = "Включите для FunPay Tools",
+                        text = "Держит приложение активным в фоне через беззвучный аудиосеанс (как у музыкальных плееров). Немного расходует батарею.",
                         color = TextSecondary,
                         fontSize = 12.sp,
                         lineHeight = 14.sp
                     )
                 }
+                Switch(
+                    checked = keepAlive,
+                    onCheckedChange = {
+                        keepAlive = it
+                        prefs.edit().putBoolean("ios_background_keepalive", it).apply()
+                        PlatformBackground.setKeepAlive(it && FunPayService.isRunning())
+                    }
+                )
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A237E).copy(alpha = 0.3f))) {
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(PurpleAccent.copy(alpha = 0.12f))) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(
-                    "📋 Инструкция по производителям:",
-                    color = Color(0xFF90CAF9),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 14.sp
-                )
+                Text("📋 Советы для iPhone:", color = PurpleAccent, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                 Spacer(Modifier.height(8.dp))
-
-                val manufacturer = AndroidBuild.MANUFACTURER.lowercase()
-                val instructions = when {
-                    manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco") ->
-                        "Xiaomi/MIUI:\n• Батарея → Нет ограничений\n• Контроль активности → Нет ограничений\n• Автозапуск → Включить"
-                    manufacturer.contains("oneplus") || manufacturer.contains("oplus") ->
-                        "OnePlus/OxygenOS:\n• Настройки батареи → Не оптимизировать\n• Фоновая активность → Неограниченный доступ\n• Автозапуск → Включить"
-                    manufacturer.contains("oppo") || manufacturer.contains("realme") ->
-                        "Oppo/Realme:\n• Батарея → Не оптимизировать\n• Автозапуск → Включить"
-                    manufacturer.contains("samsung") ->
-                        "Samsung:\n• Батарея → Не ограничивать\n• Спящий режим → Удалить из списка\n• Автозапуск → Включить"
-                    manufacturer.contains("huawei") || manufacturer.contains("honor") ->
-                        "Huawei/Honor:\n• Диспетчер приложений → Защищённые\n• Батарея → Игнорировать оптимизацию"
-                    manufacturer.contains("vivo") || manufacturer.contains("iqoo") ->
-                        "Vivo/iQOO:\n• Батарея → Высокое энергопотребление → Включить\n• Автозапуск → Включить"
-                    else ->
-                        "Общие настройки:\n• Оптимизация батареи → Не оптимизировать\n• Фоновая работа → Разрешить\n• Автозапуск → Включить"
-                }
-
                 Text(
-                    instructions,
-                    color = Color.White,
+                    "• Не закрывайте приложение свайпом вверх — так iOS полностью его останавливает.\n" +
+                    "• Режим энергосбережения ограничивает фоновую работу.\n" +
+                    "• Настройки → FunPay Tools → Обновление контента: включите.\n" +
+                    "• Если приложение всё же выгрузилось, просто откройте его — работа продолжится.",
+                    color = TextSecondary,
                     fontSize = 12.sp,
                     lineHeight = 16.sp
                 )
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
 
         Button(
             onClick = {
-                if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.M) {
-                    if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
-                        Toast.makeText(context, "ВЫ НЕ ОТКЛЮЧИЛИ ОПТИМИЗАЦИЮ БАТАРЕИ! Приложение не сможет работать в фоне 24/7.", Toast.LENGTH_LONG).show()
-                        @SuppressLint("BatteryLife")
-                        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                            data = Uri.parse("package:${context.packageName}")
-                        }
-                        context.startActivity(intent)
-                        return@Button
-                    }
-                }
-
-                if (hasAuth) {
-                    navController.popBackStack()
-                } else {
-                    navController.navigate("auth_method")
-                }
+                if (hasAuth) navController.popBackStack() else navController.navigate("auth_method")
             },
             colors = ButtonDefaults.buttonColors(containerColor = PurpleAccent),
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
+            modifier = Modifier.fillMaxWidth().height(50.dp)
         ) {
-            Text("Я всё настроил, Продолжить")
+            Text("Продолжить")
         }
     }
 }

@@ -339,6 +339,14 @@ fun WidgetsScreen(
             }
 
             Text(
+                "Как добавить на iPhone: удерживайте палец на главном экране → «+» в углу → найдите «FunPay Tools» → выберите «Баланс» или «Профиль».",
+                color = ThemeManager.parseColor(currentTheme.textPrimaryColor),
+                fontSize = 13.sp,
+                lineHeight = 18.sp,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+
+            Text(
                 "Виджеты обновляются автоматически сервисом или вручную кнопкой выше.",
                 color = ThemeManager.parseColor(currentTheme.textSecondaryColor),
                 fontSize = 12.sp,
