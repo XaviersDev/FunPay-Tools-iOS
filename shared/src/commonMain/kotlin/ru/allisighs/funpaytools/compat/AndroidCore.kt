@@ -37,6 +37,10 @@ expect object PlatformBridge {
     fun clipboardImageToFile(): String?
     fun clipboardChangeCount(): Long
     fun setSystemBarsHidden(hidden: Boolean)
+    /** Номер сборки (CFBundleVersion на iOS); 0, если неизвестен. */
+    val buildNumber: Int
+    /** true на iPhone/iPad. */
+    val isIos: Boolean
 }
 
 val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)

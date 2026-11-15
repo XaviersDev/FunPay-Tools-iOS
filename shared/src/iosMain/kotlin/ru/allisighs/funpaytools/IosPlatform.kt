@@ -165,6 +165,9 @@ private object Keychain {
 }
 
 actual object PlatformBridge {
+    actual val buildNumber: Int
+        get() = (platform.Foundation.NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleVersion") as? String)?.toIntOrNull() ?: 0
+    actual val isIos: Boolean = true
     actual val filesDir: String by lazy { ensureDir(dir(NSApplicationSupportDirectory) + "/files") }
     actual val cacheDir: String by lazy { ensureDir(dir(NSCachesDirectory) + "/fpt") }
     actual val documentsDir: String by lazy { ensureDir(dir(NSDocumentDirectory)) }

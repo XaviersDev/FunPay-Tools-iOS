@@ -64,6 +64,8 @@ actual fun platformHttpExecute(req: RawHttpRequest): RawHttpResponse {
 }
 
 actual object PlatformBridge {
+    actual val buildNumber: Int = 0
+    actual val isIos: Boolean = false
     actual val filesDir: String get() = java.io.File(appHome, "files").also { it.mkdirs() }.absolutePath
     actual val cacheDir: String get() = java.io.File(appHome, "cache").also { it.mkdirs() }.absolutePath
     actual val documentsDir: String get() = java.io.File(appHome, "documents").also { it.mkdirs() }.absolutePath

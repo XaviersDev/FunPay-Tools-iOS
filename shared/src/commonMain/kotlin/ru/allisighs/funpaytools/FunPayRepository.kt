@@ -791,6 +791,7 @@ class FunPayRepository(private val context: Context, val targetAccountId: String
     }
 
     suspend fun checkForUpdates(): UpdateInfo? {
+        if (PlatformBridge.isIos) return checkForIosUpdates()
         return withContext(Dispatchers.IO) {
             try {
                 val client = OkHttpClient()
@@ -814,6 +815,29 @@ class FunPayRepository(private val context: Context, val targetAccountId: String
             } catch (e: Exception) {
                 null
             }
+        }
+    }
+
+    /**
+     * iOS: релизы лежат в FunPay-Tools-iOS с тегами вида ios-v1.4.1-build7.
+     * Сравниваем номер сборки из тега с CFBundleVersion, скачивание ведёт на страницу с инструкцией.
+     */
+    private suspend fun checkForIosUpdates(): UpdateInfo? = withContext(Dispatchers.IO) {
+        try {
+            val current = PlatformBridge.buildNumber
+            if (current <= 0) return@withContext null
+            val request = Request.Builder()
+                .url("https://api.github.com/repos/XaviersDev/FunPay-Tools-iOS/releases/latest")
+                .header("User-Agent", "FunPayToolsApp")
+                .header("Accept", "application/vnd.github+json")
+                .build()
+            val response = OkHttpClient().newCall(request).execute()
+            val json = JSONObject(response.body?.string() ?: return@withContext null)
+            val m = Regex("v?([0-9.]+)-build(\\d+)").find(json.optString("tag_name")) ?: return@withContext null
+            val build = m.groupValues[2].toIntOrNull() ?: return@withContext null
+            UpdateInfo(build > current, "${m.groupValues[1]} (сборка $build)", "https://funpay.tools/iphone")
+        } catch (e: Exception) {
+            null
         }
     }
 

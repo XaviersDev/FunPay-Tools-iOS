@@ -268,7 +268,16 @@ fun FunPayToolsApp(
         } else {
             Box(modifier = Modifier.fillMaxSize().background(AppGradient)) {
                 WallpaperLayer(theme = currentTheme)
-                NavHost(navController = navController, startDestination = startDestination) {
+                // Экраны прозрачные (под ними общий фон и обои), поэтому длинный переход по умолчанию
+                // показывал старый экран сквозь новый. Короткое растворение без сдвига.
+                NavHost(
+                    navController = navController,
+                    startDestination = startDestination,
+                    enterTransition = { fadeIn(tween(120)) },
+                    exitTransition = { fadeOut(tween(60)) },
+                    popEnterTransition = { fadeIn(tween(120)) },
+                    popExitTransition = { fadeOut(tween(60)) }
+                ) {
                     composable("welcome") { WelcomeScreen(navController) }
                     composable("backups") {
                         BackupsScreen(
