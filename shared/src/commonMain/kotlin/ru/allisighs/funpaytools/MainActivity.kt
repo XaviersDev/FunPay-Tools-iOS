@@ -221,6 +221,7 @@ fun FunPayToolsRoot() {
                 currentTheme = newTheme
             }
             ToastOverlay()
+            CrashReportDialog()
         }
     }
 }
@@ -6841,8 +6842,8 @@ fun ChatDetailScreen(chatId: String, username: String, repository: FunPayReposit
                                         checkClipboardImage()
                                         if (showStickers) pendingKeyboard = true
                                     }
-                                }
-                                .contentReceiver(receiveContentListener),
+                                },
+                                // contentReceiver is not implemented on iOS Compose (NotImplementedError)
                             textStyle = androidx.compose.ui.text.TextStyle(color = palette.text, fontSize = 16.sp, lineHeight = 21.sp),
                             cursorBrush = androidx.compose.ui.graphics.SolidColor(palette.accent),
                             maxLines = 6

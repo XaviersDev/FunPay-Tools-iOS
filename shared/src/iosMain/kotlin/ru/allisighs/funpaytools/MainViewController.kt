@@ -58,8 +58,19 @@ private fun installOrientationBridge() {
     }
 }
 
+@OptIn(kotlin.experimental.ExperimentalNativeApi::class)
+private fun installCrashHook() {
+    val previous = kotlin.native.setUnhandledExceptionHook { t ->
+        CrashReport.save(t)
+    }
+}
+
+/** Called from Swift for Objective-C exceptions (NSException). */
+fun saveNativeCrash(text: String) = CrashReport.save("NSException", text)
+
 /** Called from Swift at launch, before the UI is created (so notification taps are not lost). */
 fun appDidFinishLaunching() {
+    installCrashHook()
     PlatformNotifications.install()
     installLifecycleObservers()
     installOrientationBridge()

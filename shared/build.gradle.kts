@@ -15,7 +15,7 @@ kotlin {
         target.binaries.framework {
             baseName = "Shared"
             isStatic = true
-            freeCompilerArgs += listOf("-Xbinary=bundleId=ru.allisighs.funpaytools.shared")
+            freeCompilerArgs += listOf("-Xbinary=bundleId=ru.allisighs.funpaytools.shared", "-Xadd-light-debug=enable", "-Xbinary=sourceInfoType=libbacktrace")
         }
     }
 

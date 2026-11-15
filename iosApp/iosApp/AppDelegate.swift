@@ -8,6 +8,10 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+        NSSetUncaughtExceptionHandler { exc in
+            let text = "\(exc.name.rawValue): \(exc.reason ?? "")\n\n" + exc.callStackSymbols.joined(separator: "\n")
+            MainViewControllerKt.saveNativeCrash(text: text)
+        }
         JsEngineRegistry.shared.factory = { SwiftJsEngine() }
         MainViewControllerKt.appDidFinishLaunching()
         WidgetDataBridge.install()

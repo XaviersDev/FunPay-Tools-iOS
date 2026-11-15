@@ -74,7 +74,7 @@ fun main(args: Array<String>) {
         AppBootstrap.init()
         for (w in which.split("+")) {
             if (w == "root") { Snapshot.render("root", frames = 160) { FunPayToolsRoot() }; continue }
-            Snapshot.render(w.replace("/", "_"), frames = 100) {
+            try { Snapshot.render(w.replace("/", "_"), frames = 60) {
                 val theme = androidx.compose.runtime.remember { ThemeManager.loadTheme(AppContext) }
                 DesignTokens.theme = theme
                 androidx.compose.material3.MaterialTheme(colorScheme = colorSchemeFor(theme)) {
@@ -83,6 +83,9 @@ fun main(args: Array<String>) {
                         ToastOverlay()
                     }
                 }
+            } } catch (t: Throwable) {
+                println("CRASH $w: $t")
+                t.stackTrace.take(4).forEach { println("    at $it") }
             }
         }
     }

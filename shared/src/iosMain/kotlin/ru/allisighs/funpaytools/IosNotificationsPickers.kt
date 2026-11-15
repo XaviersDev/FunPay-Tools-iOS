@@ -149,7 +149,7 @@ actual object PlatformNotifications {
         if (spec.replyPayload != null) {
             actions.add(
                 UNTextInputNotificationAction.actionWithIdentifier(
-                    "reply", spec.replyLabel ?: "Ответить", 0u as UNNotificationActionOptions, "Отправить", "Сообщение…"
+                    "reply", spec.replyLabel ?: "Ответить", 0uL, "Отправить", "Сообщение…"
                 )
             )
         }
@@ -159,7 +159,7 @@ actual object PlatformNotifications {
         if (actions.isNotEmpty()) {
             val catId = "fpt_" + (listOf(if (spec.replyPayload != null) "r:${spec.replyLabel}" else "") + spec.buttons.map { it.first }).joinToString("|").hashCode().toUInt().toString(16)
             ensureCategory(catId) {
-                UNNotificationCategory.categoryWithIdentifier(catId, actions, emptyList<String>(), 0u as UNNotificationCategoryOptions)
+                UNNotificationCategory.categoryWithIdentifier(catId, actions, emptyList<String>(), 0uL)
             }
             content.setCategoryIdentifier(catId)
         }
