@@ -184,6 +184,7 @@ object AppBootstrap {
         try { Ads.init(AppContext) } catch (e: Exception) { e.printStackTrace() }
         try { LicenseManager.init(AppContext) } catch (e: Exception) { e.printStackTrace() }
         try { EpicNicksManager.init() } catch (e: Exception) { e.printStackTrace() }
+        try { FptDecor.init() } catch (e: Exception) { e.printStackTrace() }
         repository = FunPayRepository(AppContext)
         NotificationActionRouter.registerReceiver(ReplyReceiver::class) { ReplyReceiver() }
         NotificationActionRouter.onOpenIntent = { intent ->
@@ -1783,7 +1784,7 @@ fun DashboardScreen(navController: NavController, repository: FunPayRepository, 
                         listOf(
                             0 to Icons.Default.Chat,
                             1 to Icons.Default.Tune,
-                            6 to Icons.Default.DynamicFeed,
+                            6 to Icons.Default.AccountCircle,
                             2 to Icons.Default.Person,
                             5 to Icons.Default.ShoppingBag,
                             3 to Icons.Default.Support,
@@ -1861,7 +1862,7 @@ fun DashboardScreen(navController: NavController, repository: FunPayRepository, 
                     3 -> SupportScreenView(repository, currentTheme) { selectedTab = 0 }
                     4 -> ConsoleView(logs, currentTheme, navController)
                     5 -> SalesScreen(repository = repository, theme = currentTheme, navController = navController)
-                    6 -> FeedScreen(navController, repository, currentTheme)
+                    6 -> FptAccountScreen(repository, currentTheme, navController)
                     7 -> PluginsMainScreen(navController, repository, currentTheme, isTab = true)
                 }
             }
@@ -2266,6 +2267,7 @@ fun ChatItemView(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.width(48.dp)
                 ) {
+                    FramedAvatar(uid = null, name = chat.username, size = 48.dp) {
                     AsyncImage(
                         model = chat.avatarUrl,
                         contentDescription = "Avatar",
@@ -2278,6 +2280,7 @@ fun ChatItemView(
                             },
                         contentScale = ContentScale.Crop
                     )
+                    }
                     if (assignedLabels.isNotEmpty()) {
                         Spacer(Modifier.height(3.dp))
                         Row(
@@ -6078,6 +6081,7 @@ fun ChatDetailScreen(chatId: String, username: String, repository: FunPayReposit
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = ThemeManager.parseColor(theme.textPrimaryColor))
                         }
                         if (chatInfo?.avatarUrl != null) {
+                            FramedAvatar(uid = chatInfo?.peerUserId, name = username, size = 38.dp) {
                             AsyncImage(
                                 model = chatInfo!!.avatarUrl,
                                 contentDescription = null,
@@ -6089,6 +6093,7 @@ fun ChatDetailScreen(chatId: String, username: String, repository: FunPayReposit
                                     },
                                 contentScale = ContentScale.Crop
                             )
+                            }
                             Spacer(Modifier.width(10.dp))
                         }
                         Column(

@@ -1,5 +1,6 @@
 package ru.allisighs.funpaytools
 
+import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.ImageComposeScene
@@ -8,8 +9,8 @@ import org.jetbrains.skia.EncodedImageFormat
 
 /** Headless renderer used to eyeball screens on CI/Linux: renders composable into PNG frames. */
 object Snapshot {
-    fun render(name: String, frames: Int = 120, stepMs: Long = 50, content: @Composable () -> Unit) {
-        val scene = ImageComposeScene(width = 1170, height = 2532, density = Density(3f), content = content)
+    fun render(name: String, frames: Int = 120, stepMs: Long = 50, height: Int = 2532, content: @Composable () -> Unit) {
+        val scene = ImageComposeScene(width = 1170, height = height, density = Density(3f), content = content)
         var t = 0L
         var img = scene.render(t)
         repeat(frames) {
@@ -54,6 +55,14 @@ fun selfTest() {
     val prefs = AppContext.getSharedPreferences("selftest", 0)
     prefs.edit().putString("s", "v").putInt("i", 5).putStringSet("ss", setOf("a", "b")).putBoolean("b", true).commit()
     check("prefs", prefs.getString("s", null) == "v" && prefs.getInt("i", 0) == 5 && prefs.getStringSet("ss", null) == setOf("a", "b"))
+    // frozen funds (same case as desktop money.rs test)
+    val mcal = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow")); mcal.set(2026, 9, 29, 20, 0, 0)
+    val now = mcal.timeInMillis
+    fun tx(title: String, date: String, amount: Double) = FpTransaction("x" + title, title, "complete", FpFinance.typeOf(title), amount, "₽", date, FpDates.parse(date, now))
+    val fr = FpFinance.frozen(listOf(tx("Заказ #AAAAAA", "сегодня, 14:31", 100.0), tx("Заказ #BBBBBB", "вчера, 21:00", 50.0), tx("Заказ #CCCCCC", "25 октября, 12:00", 900.0), tx("Вывод денег", "сегодня, 10:00", -30.0)), now)
+    check("frozen.48h", fr.sum("₽") == 150.0, fr.byCurrency)
+    val mg = FpFinance.mergeWithSales(fr, listOf(290.94 to now + 1000), "₽")
+    check("frozen.merge", mg.first == 290.94, mg)
     // network + interceptors + cookies + ksoup
     var hops = 0
     val client = OkHttpClient.Builder().addNetworkInterceptor { chain -> hops++; chain.proceed(chain.request()) }.build()
@@ -73,6 +82,20 @@ fun main(args: Array<String>) {
     javax.swing.SwingUtilities.invokeAndWait {
         AppBootstrap.init()
         for (w in which.split("+")) {
+            if (w == "fptacc" || w == "fptacc_in") {
+                if (w == "fptacc_in") FptAccountApi.previewProfile = JSONObject("""{"ok":true,"pro":"temporary","proUntil":1795000000000,"nicks":[{"nickname":"AlliSighs","is_paid":1}],"nickCredits":0,"freeNick":false,"plans":{"1m":{"label":"PRO на 1 месяц","rub":149},"3m":{"label":"PRO на 3 месяца","rub":349},"forever":{"label":"PRO навсегда","rub":999}},"nickPrice":399,"nickPriceFirst":499,"nickPriceNext":399,"decor":{"frame":"pro","banner":null},"decorPrices":{"frame":149,"banner":199}}""")
+                Snapshot.render(w, frames = 90, height = if (w == "fptacc_in") 6500 else 2532) {
+                    val theme = androidx.compose.runtime.remember { ThemeManager.loadTheme(AppContext) }
+                    DesignTokens.theme = theme
+                    androidx.compose.material3.MaterialTheme(colorScheme = colorSchemeFor(theme)) {
+                        androidx.compose.foundation.layout.Box(androidx.compose.ui.Modifier.fillMaxSize().background(ThemeManager.parseColor(theme.backgroundColor))) {
+                            FptAccountScreen(AppBootstrap.repository, theme, androidx.navigation.compose.rememberNavController())
+                        }
+                    }
+                }
+                FptAccountApi.previewProfile = null
+                continue
+            }
             if (w == "root") { Snapshot.render("root", frames = 160) { FunPayToolsRoot() }; continue }
             try { Snapshot.render(w.replace("/", "_"), frames = 60) {
                 val theme = androidx.compose.runtime.remember { ThemeManager.loadTheme(AppContext) }
