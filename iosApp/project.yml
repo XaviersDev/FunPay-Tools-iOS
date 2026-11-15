@@ -25,7 +25,8 @@ targets:
         INFOPLIST_FILE: iosApp/Info.plist
         TARGETED_DEVICE_FAMILY: "1,2"
         FRAMEWORK_SEARCH_PATHS: "$(SRCROOT)/../shared/build/bin/iosArm64/releaseFramework"
-        OTHER_LDFLAGS: "-framework Shared -lsqlite3"
+        OTHER_LDFLAGS: "-framework Shared -lc++ -framework WebKit -framework JavaScriptCore -framework AVFoundation -framework AVFAudio -framework CoreMotion -framework PhotosUI -framework Photos -framework UserNotifications -framework Security -framework AudioToolbox -framework UniformTypeIdentifiers -framework Metal -framework MetalKit -framework CoreText -framework QuartzCore -framework CoreGraphics -framework CoreServices -framework SystemConfiguration -framework Network"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ARCHS: arm64
         ONLY_ACTIVE_ARCH: "NO"
+        DEAD_CODE_STRIPPING: "YES"

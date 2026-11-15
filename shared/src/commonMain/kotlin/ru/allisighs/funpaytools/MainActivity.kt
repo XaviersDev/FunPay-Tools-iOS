@@ -1,0 +1,12148 @@
+/*
+ *
+ *  * Copyright (c) 2026 XaviersDev (AlliSighs). All rights reserved.
+ *  *
+ *  * This code is proprietary. Modification, distribution, or use
+ *  * of this file without express written permission is strictly prohibited.
+ *  * Unauthorized use will be prosecuted.
+ *
+ */
+
+@file:OptIn(ExperimentalFoundationApi::class)
+
+package ru.allisighs.funpaytools
+
+import kotlinx.coroutines.IO
+
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.sync.withLock
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.content.ReceiveContentListener
+import androidx.compose.foundation.content.contentReceiver
+import androidx.compose.foundation.content.hasMediaType
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.content.MediaType
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.navigation.NavController
+import androidx.navigation.compose.NavHost
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeOut
+import androidx.compose.ui.platform.LocalHapticFeedback
+import coil3.ImageLoader
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlin.math.abs
+import kotlin.math.roundToInt
+
+data class ParsedMessage(
+    val id: String,
+    val author: String,
+    val text: String,
+    val isMe: Boolean,
+    val time: String,
+    val imageUrl: String? = null,
+    val isSystem: Boolean = false,
+    val isAdmin: Boolean = false,
+    val badge: String? = null,
+    val links: List<MessageLink> = emptyList(),
+    val authorUserId: String? = null,
+    val authorAvatarUrl: String? = null,
+    /** Текст цитаты, если это ответ в формате «╭─ ⤸ цитата\n╰ ответ» (как в расширении). */
+    val replyQuote: String? = null,
+    /** Отправка картинки/стикера: 0 — обычное сообщение, 1 — отправляется (часики), 2 — не отправилось. */
+    val sendState: Int = 0,
+    /** Локальная картинка, которую показывали до ответа FunPay (чтобы не мигало при замене). */
+    val localPreview: String? = null
+)
+
+private val REPLY_FORMAT = Regex("^╭─\\s*⤸\\s?([\\s\\S]*?)\\n╰\\s?([\\s\\S]*)$")
+
+data class MessageLink(
+    val text: String,
+    val url: String,
+    val type: LinkType
+)
+
+enum class LinkType {
+    ORDER, USER, LOT, EXTERNAL
+}
+
+/** Target class for intents that open the app (notifications etc.). */
+object MainActivity
+
+val pendingChatIdState = mutableStateOf<Pair<String, String>?>(null)
+
+object AppBootstrap {
+    private var done = false
+    lateinit var repository: FunPayRepository
+        private set
+
+    fun init() {
+        if (done) return
+        done = true
+        CoilSetup.install()
+        try { Stats.init(AppContext) } catch (e: Exception) { e.printStackTrace() }
+        try { Ads.init(AppContext) } catch (e: Exception) { e.printStackTrace() }
+        try { LicenseManager.init(AppContext) } catch (e: Exception) { e.printStackTrace() }
+        try { EpicNicksManager.init() } catch (e: Exception) { e.printStackTrace() }
+        repository = FunPayRepository(AppContext)
+        NotificationActionRouter.registerReceiver(ReplyReceiver::class) { ReplyReceiver() }
+        NotificationActionRouter.onOpenIntent = { intent ->
+            val chatId = intent.getStringExtra("chat_id")
+            if (chatId != null) pendingChatIdState.value = Pair(chatId, intent.getStringExtra("chat_username") ?: chatId)
+        }
+        IntentRouter.serviceStarter = { cls -> if (cls == FunPayService::class) FunPayService.start() }
+        IntentRouter.serviceStopper = { cls -> if (cls == FunPayService::class) FunPayService.stop() }
+    }
+}
+
+@Composable
+fun FunPayToolsRoot() {
+    AppBootstrap.init()
+    val repository = AppBootstrap.repository
+    val startDest = remember { if (repository.hasAuth()) "dashboard" else "welcome" }
+
+    LaunchedEffect(Unit) {
+        PlatformNotifications.requestPermission { }
+        if (repository.hasAuth()) {
+            try { ServiceStarter.startSafely(AppContext) } catch (_: Exception) {}
+        }
+    }
+
+    var currentTheme by remember { mutableStateOf(ThemeManager.loadTheme(AppContext)) }
+    DesignTokens.theme = currentTheme
+
+    // Значки статус-бара: тёмные на светлой теме FunPay, светлые на тёмных
+    val isLightTheme = ThemeManager.isLight(currentTheme)
+    SideEffect { PlatformUi.setStatusBarDarkIcons(isLightTheme) }
+
+    MaterialTheme(colorScheme = colorSchemeFor(currentTheme)) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            FunPayToolsApp(startDest, repository, currentTheme, pendingChatIdState) { newTheme ->
+                currentTheme = newTheme
+            }
+            ToastOverlay()
+        }
+    }
+}
+
+var SharedCatalogPack: CatalogPack? = null
+
+/** Флаг на весь процесс: setPersistenceEnabled уже вызывали. */
+@Volatile private var firebasePersistenceConfigured = false
+
+
+@Composable
+fun FunPayToolsApp(
+    startDestination: String,
+    repository: FunPayRepository,
+    currentTheme: AppTheme,
+    pendingChatId: MutableState<Pair<String, String>?> = remember { mutableStateOf(null) },
+    onThemeChanged: (AppTheme) -> Unit
+) {
+    val navController = rememberNavController()
+
+    PremiumInterceptor(navController, currentTheme)
+    // Анимация запуска убрана — приложение открывается сразу
+    var showSplash by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+
+    LaunchedEffect(showSplash, pendingChatId.value) {
+        val target = pendingChatId.value
+        if (!showSplash && target != null) {
+            pendingChatId.value = null
+
+            if (startDestination == "dashboard") {
+                navController.navigate("chat/${target.first}/${target.second}") {
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (showSplash) {
+            SplashScreen(onTimeout = { showSplash = false }, theme = currentTheme)
+        } else {
+            Box(modifier = Modifier.fillMaxSize().background(AppGradient)) {
+                WallpaperLayer(theme = currentTheme)
+                NavHost(navController = navController, startDestination = startDestination) {
+                    composable("welcome") { WelcomeScreen(navController) }
+                    composable("backups") {
+                        BackupsScreen(
+                            navController = navController,
+                            currentTheme = currentTheme,
+                            repository = repository,
+                            onThemeChanged = { newTheme ->
+                                onThemeChanged(newTheme)
+                                ThemeManager.saveTheme(context, newTheme)
+                            }
+                        )
+                    }
+                    composable("rmthub_search") {
+                        RMTHubScreen(navController, currentTheme)
+                    }
+                    composable("permissions") {
+                        AppScaffold("Доступы", navController, currentTheme) { PermissionsScreen(navController, repository) }
+                    }
+                    composable("auth_method") {
+                        AppScaffold("Вход", navController, currentTheme) { AuthMethodScreen(navController) }
+                    }
+                    composable("manual_login") {
+                        AppScaffold("Через Golden Key", navController, currentTheme) { ManualLoginScreen(navController, repository) }
+                    }
+                    composable("web_login") {
+                        AppScaffold("Через браузер", navController, currentTheme) { WebLoginScreen(navController, repository) }
+                    }
+
+                    composable("funpay_browser") {
+                        FunPayBrowserScreen(
+                            navController = navController,
+                            repository = repository,
+                            theme = currentTheme
+                        )
+                    }
+
+                    // Встроенный браузер сразу на нужной странице (лот, профиль и т.п.)
+                    composable("funpay_browser_url/{url}") { backStackEntry ->
+                        val startUrl = Uri.decode(backStackEntry.arguments?.getString("url").orEmpty())
+                        FunPayBrowserScreen(
+                            navController = navController,
+                            repository = repository,
+                            theme = currentTheme,
+                            startUrl = startUrl.takeIf { it.startsWith("https://funpay.com") }
+                        )
+                    }
+
+                    composable("funpay_browser_pick") {
+                        FunPayBrowserScreen(
+                            navController = navController,
+                            repository = repository,
+                            theme = currentTheme,
+                            pickForConcurent = true
+                        )
+                    }
+
+                    composable("dashboard") { DashboardScreen(navController, repository, currentTheme, onThemeChanged) }
+
+                    composable("plugins") {
+                        PluginsMainScreen(navController, repository, currentTheme)
+                    }
+
+                    composable("donations") {
+                        AppScaffold("Тарифы", navController, currentTheme) {
+                            DonationScreen(currentTheme)
+                        }
+                    }
+                    composable("aos_settings") {
+                        AppScaffold("Настройки AOD дисплея", navController, currentTheme) {
+                            AosSettingsScreen(navController, currentTheme)
+                        }
+                    }
+
+                    composable("aos_display") {
+                        AosDisplayScreen(navController, repository, currentTheme)
+                    }
+
+                    composable("aos_constructor") {
+                        AosConstructorScreen(navController, currentTheme)
+                    }
+
+                    composable("lots") {
+                        LotsScreen(
+                            navController = navController,
+                            repository = repository,
+                            theme = currentTheme
+                        )
+                    }
+
+                    composable("lot_edit/{lotId}") { backStackEntry ->
+                        val lotId = backStackEntry.arguments?.getString("lotId") ?: ""
+                        LotEditScreen(
+                            lotId = lotId,
+                            navController = navController,
+                            repository = repository,
+                            theme = currentTheme
+                        )
+                    }
+                    composable("xd_dumper") {
+                        XDDumperMainScreen(
+                            navController = navController,
+                            repository = repository,
+                            theme = currentTheme
+                        )
+                    }
+                    composable("xd_dumper_edit/{lotId}") { backStackEntry ->
+                        val lotId = backStackEntry.arguments?.getString("lotId") ?: ""
+                        XDDumperLotEditScreen(
+                            lotId = lotId,
+                            navController = navController,
+                            repository = repository,
+                            theme = currentTheme
+                        )
+                    }
+
+                    composable("accounts") {
+                        AccountsSelectorScreen(
+                            navController = navController,
+                            repository = repository,
+                            currentTheme = currentTheme
+                        )
+                    }
+
+                    composable("settings") {
+                        SettingsScreen(
+                            navController = navController,
+                            repository = repository,
+                            currentTheme = currentTheme,
+                            onThemeChange = { newTheme ->
+                                onThemeChanged(newTheme)
+                                ThemeManager.saveTheme(context, newTheme)
+                            }
+                        )
+                    }
+
+                    composable("theme_selector") {
+                        ThemeSelectionScreen(
+                            navController = navController,
+                            currentTheme = currentTheme,
+                            onThemeSelected = { newTheme ->
+                                onThemeChanged(newTheme)
+                                ThemeManager.saveTheme(context, newTheme)
+                                navController.navigateUp()
+                            }
+                        )
+                    }
+
+                    composable("theme_customization") {
+                        ThemeCustomizationScreen(
+                            currentTheme = currentTheme,
+                            onThemeChanged = { newTheme ->
+                                onThemeChanged(newTheme)
+                                ThemeManager.saveTheme(context, newTheme)
+                            },
+                            onBack = { navController.navigateUp() }
+                        )
+                    }
+
+                    composable("widgets_settings") {
+                        WidgetsScreen(
+                            navController = navController,
+                            currentTheme = currentTheme
+                        )
+                    }
+
+                    composable("chat/{chatId}/{username}") { backStackEntry ->
+                        val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
+                        val username = backStackEntry.arguments?.getString("username") ?: ""
+                        ChatDetailScreen(chatId, username, repository, currentTheme, navController)
+                    }
+
+                    composable("order/{orderId}") { backStackEntry ->
+                        val orderId = backStackEntry.arguments?.getString("orderId") ?: ""
+                        AppScaffold("Заказ #$orderId", navController, currentTheme) { OrderScreen(orderId, repository, currentTheme, navController) }
+                    }
+
+                    composable("profile/{nodeId}/{username}") { backStackEntry ->
+                        val nodeId = backStackEntry.arguments?.getString("nodeId") ?: ""
+                        val profileUsername = backStackEntry.arguments?.getString("username") ?: ""
+                        UserProfileScreen(
+                            nodeId = nodeId,
+                            username = profileUsername,
+                            navController = navController,
+                            repository = repository,
+                            theme = currentTheme
+                        )
+                    }
+
+                    // Профиль по ID пользователя (общий и игровые чаты, витрина лотов): чат с ним не нужен
+                    composable("user/{userId}/{username}") { backStackEntry ->
+                        val userId = backStackEntry.arguments?.getString("userId") ?: ""
+                        val profileUsername = backStackEntry.arguments?.getString("username") ?: ""
+                        UserProfileScreen(
+                            nodeId = "",
+                            username = profileUsername,
+                            navController = navController,
+                            repository = repository,
+                            theme = currentTheme,
+                            knownUserId = userId
+                        )
+                    }
+
+                    composable("buyer_history/{partnerName}/{partnerId}") { backStackEntry ->
+                        val partnerName = backStackEntry.arguments?.getString("partnerName") ?: ""
+                        val partnerId   = backStackEntry.arguments?.getString("partnerId")   ?: ""
+                        AppScaffold("История с $partnerName", navController, currentTheme) {
+                            BuyerHistoryScreen(
+                                partnerName = partnerName,
+                                partnerId   = partnerId,
+                                repository  = repository,
+                                theme       = currentTheme,
+                                navController = navController
+                            )
+                        }
+                    }
+
+                    composable("lot/{offerId}") { backStackEntry ->
+                        val offerId = backStackEntry.arguments?.getString("offerId") ?: ""
+                        LotScreen(
+                            offerId = offerId,
+                            repository = repository,
+                            theme = currentTheme,
+                            navController = navController
+                        )
+                    }
+
+                    composable("catalog") {
+                        CatalogMainScreen(navController = navController, theme = currentTheme)
+                    }
+                    composable("catalog_import") {
+                        CatalogImportScreen(navController = navController, repository = repository, theme = currentTheme)
+                    }
+                    composable("catalog_export") {
+                        CatalogExportScreen(navController = navController, repository = repository, theme = currentTheme)
+                    }
+                }
+
+                // Сессия FunPay слетела → большой экран "Войти заново"
+                val lostInfo by FpSession.sessionLost.collectAsState()
+                val backEntry by navController.currentBackStackEntryAsState()
+                val route = backEntry?.destination?.route
+                val authRoutes = setOf("welcome", "auth_method", "manual_login", "web_login", "permissions", "accounts")
+                val activeKeyHash = FpCookieStore.keyFor(repository.getGoldenKey())
+                val info = lostInfo
+                if (info != null && route !in authRoutes && info.goldenKeyHash == activeKeyHash) {
+                    SessionLostOverlay(
+                        info = info,
+                        theme = currentTheme,
+                        onReloginWeb = {
+                            FpSession.setPendingRelogin(context, info.accountId)
+                            FpSession.dismiss()
+                            navController.navigate("web_login")
+                        },
+                        onReloginGoldenKey = {
+                            FpSession.setPendingRelogin(context, info.accountId)
+                            FpSession.dismiss()
+                            navController.navigate("manual_login")
+                        },
+                        onRetry = { repository.forceRecheckSession() },
+                        onDismiss = { FpSession.dismiss() }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppScaffold(title: String, navController: NavController, theme: AppTheme, content: @Composable () -> Unit) {
+    Scaffold(
+        containerColor = Color.Transparent,
+        topBar = {
+            TopAppBar(
+                title = { Text(title, color = ThemeManager.parseColor(theme.textPrimaryColor), fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = ThemeManager.parseColor(theme.surfaceColor))
+            )
+        }
+    ) { padding ->
+        Box(modifier = Modifier.padding(padding)) { content() }
+    }
+}
+
+@Composable
+fun WelcomeScreen(navController: NavController) {
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            AnimatedVisibility(visible = visible, enter = fadeIn() + slideInVertically()) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Box(modifier = Modifier.size(100.dp).background(PurpleAccent.copy(alpha = 0.3f), CircleShape))
+                        Icon(imageVector = Icons.Default.ShoppingCart, contentDescription = "Logo", modifier = Modifier.size(64.dp), tint = PurpleAccent)
+                    }
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Text("FunPay Tools", fontSize = 36.sp, fontWeight = FontWeight.Black, color = TextPrimary)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Ваш помощник для FunPay", fontSize = 16.sp, color = TextSecondary)
+                    Spacer(modifier = Modifier.height(48.dp))
+                    Button(onClick = { navController.navigate("permissions") }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = PurpleAccent)) { Text("Начать") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PermissionsScreen(navController: NavController, repository: FunPayRepository) {
+    val context = LocalContext.current
+    val hasAuth = repository.hasAuth()
+    val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+
+    val isBatteryOptimizationDisabled = if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.M) {
+        powerManager.isIgnoringBatteryOptimizations(context.packageName)
+    } else {
+        true
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp).verticalScroll(rememberScrollState())) {
+        Text(
+            text = "КРИТИЧЕСКИ ВАЖНО",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Black,
+            color = Color.Red
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Система убивает приложения при выключенном экране. Чтобы автоподнятие и автоответ работали 24/7, вы ОБЯЗАНЫ настроить это вручную.",
+            fontSize = 14.sp,
+            color = TextPrimary
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Box(modifier = Modifier
+            .liquidGlass()
+            .clickable {
+                openBatterySettings(context)
+            }
+            .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    if (isBatteryOptimizationDisabled) Icons.Default.BatteryAlert else Icons.Default.BatteryAlert,
+                    null,
+                    tint = if (isBatteryOptimizationDisabled) Color.Yellow else Color(0xFFFF9800),
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Оптимизация батареи",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = "Нажмите → выберите 'Не оптимизировать' или 'Нет ограничений', или перейдите в 'Использование батареи', отключите оптимизацию батареи, разрешите приложению работать в фоне. На каждом ОС названия настроек выглядит по-разному.",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        Box(modifier = Modifier
+            .liquidGlass()
+            .clickable {
+                openAutoStartSettings(context)
+            }
+            .padding(16.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Default.SettingsPower,
+                    null,
+                    tint = PurpleAccent,
+                    modifier = Modifier.size(32.dp)
+                )
+                Spacer(modifier = Modifier.width(16.dp))
+                Column {
+                    Text(
+                        text = "Автозапуск",
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp
+                    )
+                    Text(
+                        text = "Включите для FunPay Tools",
+                        color = TextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 14.sp
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A237E).copy(alpha = 0.3f))) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    "📋 Инструкция по производителям:",
+                    color = Color(0xFF90CAF9),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+                Spacer(Modifier.height(8.dp))
+
+                val manufacturer = AndroidBuild.MANUFACTURER.lowercase()
+                val instructions = when {
+                    manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco") ->
+                        "Xiaomi/MIUI:\n• Батарея → Нет ограничений\n• Контроль активности → Нет ограничений\n• Автозапуск → Включить"
+                    manufacturer.contains("oneplus") || manufacturer.contains("oplus") ->
+                        "OnePlus/OxygenOS:\n• Настройки батареи → Не оптимизировать\n• Фоновая активность → Неограниченный доступ\n• Автозапуск → Включить"
+                    manufacturer.contains("oppo") || manufacturer.contains("realme") ->
+                        "Oppo/Realme:\n• Батарея → Не оптимизировать\n• Автозапуск → Включить"
+                    manufacturer.contains("samsung") ->
+                        "Samsung:\n• Батарея → Не ограничивать\n• Спящий режим → Удалить из списка\n• Автозапуск → Включить"
+                    manufacturer.contains("huawei") || manufacturer.contains("honor") ->
+                        "Huawei/Honor:\n• Диспетчер приложений → Защищённые\n• Батарея → Игнорировать оптимизацию"
+                    manufacturer.contains("vivo") || manufacturer.contains("iqoo") ->
+                        "Vivo/iQOO:\n• Батарея → Высокое энергопотребление → Включить\n• Автозапуск → Включить"
+                    else ->
+                        "Общие настройки:\n• Оптимизация батареи → Не оптимизировать\n• Фоновая работа → Разрешить\n• Автозапуск → Включить"
+                }
+
+                Text(
+                    instructions,
+                    color = Color.White,
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+            onClick = {
+                if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.M) {
+                    if (!powerManager.isIgnoringBatteryOptimizations(context.packageName)) {
+                        Toast.makeText(context, "ВЫ НЕ ОТКЛЮЧИЛИ ОПТИМИЗАЦИЮ БАТАРЕИ! Приложение не сможет работать в фоне 24/7.", Toast.LENGTH_LONG).show()
+                        @SuppressLint("BatteryLife")
+                        val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                            data = Uri.parse("package:${context.packageName}")
+                        }
+                        context.startActivity(intent)
+                        return@Button
+                    }
+                }
+
+                if (hasAuth) {
+                    navController.popBackStack()
+                } else {
+                    navController.navigate("auth_method")
+                }
+            },
+            colors = ButtonDefaults.buttonColors(containerColor = PurpleAccent),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(50.dp)
+        ) {
+            Text("Я всё настроил, Продолжить")
+        }
+    }
+}
+
+fun openBatterySettings(context: Context) {
+    val manufacturer = AndroidBuild.MANUFACTURER.lowercase()
+
+    val intents = when {
+
+        manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco") -> listOf(
+            Intent().setComponent(ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsContainerManagementActivity")),
+            Intent().setComponent(ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.HiddenAppsConfigActivity")),
+            Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.powercenter.PowerSettings")),
+            Intent("miui.intent.action.POWER_HIDE_MODE_APP_LIST").addCategory(Intent.CATEGORY_DEFAULT),
+            Intent().setComponent(ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.PowerSaverSettingsActivity")),
+            Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+            Intent("miui.intent.action.APP_PERM_EDITOR").addCategory(Intent.CATEGORY_DEFAULT),
+            Intent().setComponent(ComponentName("com.miui.powerkeeper", "com.miui.powerkeeper.ui.PowerRankActivity")),
+            Intent().setComponent(ComponentName("com.xiaomi.smarthome", "com.xiaomi.smarthome.settings.SettingsActivity"))
+        )
+
+
+        manufacturer.contains("oneplus") || manufacturer.contains("oplus") -> listOf(
+            Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.OplusBatteryOptimizeActivity")),
+            Intent().setComponent(ComponentName("com.oplus.battery", "com.oplus.battery.optimizeapp.BatteryOptimizeAppListActivity")),
+            Intent().apply { action = "APP_BATTERY_SETTINGS"; data = Uri.parse("package:${context.packageName}") },
+            Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaue.PowerUsageModelActivity")),
+            Intent().setComponent(ComponentName("com.oneplus.security", "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity")),
+            Intent().setComponent(ComponentName("com.oneplus.oppoguardelf", "com.oneplus.oppoguardelf.powermonitor.PowerMonitorActivity")),
+            Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
+            Intent().setComponent(ComponentName("com.android.settings", "com.Settings\$HighPowerApplicationsActivity"))
+        )
+
+
+        manufacturer.contains("oppo") || manufacturer.contains("realme") -> listOf(
+            Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
+            Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.startupapp.StartupAppListActivity")),
+            Intent().setComponent(ComponentName("com.coloros.oppoguardelf", "com.coloros.powermanager.fuelgaue.PowerUsageModelActivity")),
+            Intent().setComponent(ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity")),
+            Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.appmanager.AppManagerActivity")),
+            Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.floatwindow.FloatWindowListActivity")),
+            Intent().setComponent(ComponentName("com.realme.gamespace", "com.realme.gamespace.batterycenter.BatteryCenterActivity"))
+        )
+
+
+        manufacturer.contains("samsung") -> listOf(
+            Intent().setComponent(ComponentName("com.samsung.android.sm", "com.samsung.BatteryActivity")),
+            Intent().setComponent(ComponentName("com.samsung.android.lool", "com.samsung.BatteryActivity")),
+            Intent().setComponent(ComponentName("com.samsung.android.sm_cn", "com.samsung.BatteryActivity")),
+            Intent("com.samsung.ACTION_OPEN_CHECKABLELISTACTIVITY").putExtra("batteryOptimization", true),
+            Intent().setComponent(ComponentName("com.samsung.android.sm", "com.samsung.SleepingAppsActivity")),
+            Intent().setComponent(ComponentName("com.samsung.android.sm", "com.samsung.DeepSleepingAppsActivity")),
+            Intent().setComponent(ComponentName("com.samsung.android.sm", "com.samsung.NeverSleepingAppsActivity")),
+            Intent().setComponent(ComponentName("com.samsung.android.game.gamehome", "com.samsung.GameBoosterSettingsActivity")),
+            Intent().setComponent(ComponentName("com.samsung.android.sm", "com.samsung.BatteryActivity"))
+        )
+
+
+        manufacturer.contains("huawei") || manufacturer.contains("honor") -> listOf(
+            Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.process.ProtectActivity")),
+            Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")),
+            Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity")),
+            Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.power.ui.HwPowerManagerActivity")),
+            Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.optimize.bootstart.BootStartActivity")),
+            Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.mainscreen.MainScreenActivity")),
+            Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.permissionmanager.ui.MainActivity"))
+        )
+
+
+        manufacturer.contains("vivo") || manufacturer.contains("iqoo") -> listOf(
+            Intent().setComponent(ComponentName("com.vivo.abe", "com.vivo.applicationbehaviorengine.ui.ExcessivePowerManagerActivity")),
+            Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")),
+            Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager")),
+            Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.AddWhiteListActivity")),
+            Intent().setComponent(ComponentName("com.vivo.abe", "com.vivo.abe.BatteryOptimizeActivity")),
+            Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.PurviewTabActivity")),
+            Intent().setComponent(ComponentName("com.iqoo.powersaving", "com.iqoo.powersaving.PowerSavingManagerActivity"))
+        )
+
+
+        manufacturer.contains("asus") -> listOf(
+            Intent().setComponent(ComponentName("com.asus.mobilemanager", "com.asus.mobilemanager.autostart.AutoStartActivity")),
+            Intent().setComponent(ComponentName("com.asus.mobilemanager", "com.asus.mobilemanager.entry.FunctionActivity")),
+            Intent().setComponent(ComponentName("com.asus.mobilemanager", "com.asus.mobilemanager.powersaver.PowerSaverSettings")),
+            Intent().setComponent(ComponentName("com.asus.gamebox", "com.asus.gamebox.settings.SettingsActivity")),
+            Intent().setComponent(ComponentName("com.asus.mobilemanager", "com.asus.mobilemanager.MainActivity"))
+        )
+
+
+        manufacturer.contains("nokia") || manufacturer.contains("hmd") -> listOf(
+            Intent().setComponent(ComponentName("com.evenwell.powersaving.g3", "com.evenwell.powersaving.g3.exception.PowerSaverExceptionActivity")),
+            Intent().setComponent(ComponentName("com.nokia.battery", "com.nokia.battery.BatteryActivity")),
+            Intent().setComponent(ComponentName("com.evenwell.batteryprotect", "com.evenwell.batteryprotect.setting.BatteryProtectSettings")),
+            Intent().setComponent(ComponentName("com.evenwell.emm", "com.evenwell.emm.ui.MainActivity"))
+        )
+
+
+        manufacturer.contains("lenovo") || manufacturer.contains("motorola") || manufacturer.contains("moto") -> listOf(
+            Intent().setComponent(ComponentName("com.motorola.batterycare", "com.motorola.batterycare.MainActivity")),
+            Intent().setComponent(ComponentName("com.motorola.actions", "com.motorola.actions.backgroundapp.BackgroundAppActivity")),
+            Intent().setComponent(ComponentName("com.lenovo.security", "com.lenovo.security.purebackground.PureBackgroundActivity")),
+            Intent().setComponent(ComponentName("com.lenovo.powersetting", "com.lenovo.powersetting.ui.Settings\$HighPowerApplicationsActivity"))
+        )
+
+
+        manufacturer.contains("meizu") -> listOf(
+            Intent().setComponent(ComponentName("com.meizu.safe", "com.meizu.safe.security.SHOW_APPSEC")),
+            Intent().setComponent(ComponentName("com.meizu.safe", "com.meizu.safe.SecurityMainActivity")),
+            Intent().setComponent(ComponentName("com.meizu.safe", "com.meizu.safe.powerui.PowerAppPermissionActivity"))
+        )
+
+
+        manufacturer.contains("lg") || manufacturer.contains("lge") -> listOf(
+            Intent().setComponent(ComponentName("com.android.settings", "com.Settings\$HighPowerApplicationsActivity")),
+            Intent().setComponent(ComponentName("com.lge.systemservice", "com.lge.systemservice.BatteryActivity"))
+        )
+
+
+        manufacturer.contains("htc") -> listOf(
+            Intent().setComponent(ComponentName("com.htc.pitroad", "com.htc.pitroad.landingpage.activity.LandingPageActivity")),
+            Intent().setComponent(ComponentName("com.htc.settings.power", "com.htc.settings.power.PowerSettingsActivity"))
+        )
+
+
+        manufacturer.contains("sony") -> listOf(
+            Intent().setComponent(ComponentName("com.sonymobile.cta", "com.sonymobile.cta.SomcCTAMainActivity")),
+            Intent().setComponent(ComponentName("com.sonymobile.settings.stamina", "com.sonymobile.settings.stamina.StaminaActivity"))
+        )
+
+
+        manufacturer.contains("zte") -> listOf(
+            Intent().setComponent(ComponentName("com.zte.powersavemode", "com.zte.powersavemode.PowerSaveSettingsActivity")),
+            Intent().setComponent(ComponentName("com.zte.heartyservice", "com.zte.heartyservice.autorun.AppAutoRunManager"))
+        )
+
+
+        manufacturer.contains("google") -> listOf(
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply { data = Uri.parse("package:${context.packageName}") },
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") }
+        )
+
+
+        manufacturer.contains("nothing") -> listOf(
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply { data = Uri.parse("package:${context.packageName}") },
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        )
+
+
+        manufacturer.contains("tecno") || manufacturer.contains("infinix") || manufacturer.contains("itel") -> listOf(
+            Intent().setComponent(ComponentName("com.transsion.systemmanager", "com.transsion.systemmanager.background.BackgroundManagerActivity")),
+            Intent().setComponent(ComponentName("com.itel.powersaver", "com.itel.powersaver.PowerSaverActivity"))
+        )
+
+
+        manufacturer.contains("blackview") -> listOf(
+            Intent().setComponent(ComponentName("com.dv.powermanager", "com.dv.powermanager.PowerManagerActivity")),
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        )
+
+
+        manufacturer.contains("ulefone") || manufacturer.contains("doogee") || manufacturer.contains("oukitel") -> listOf(
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply { data = Uri.parse("package:${context.packageName}") },
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        )
+
+
+        manufacturer.contains("fairphone") -> listOf(
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply { data = Uri.parse("package:${context.packageName}") },
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        )
+
+
+        else -> listOf(
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply { data = Uri.parse("package:${context.packageName}") },
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply { data = Uri.parse("package:${context.packageName}") },
+            Intent(Settings.ACTION_SETTINGS)
+        )
+    }
+
+    var success = false
+    for (intent in intents) {
+        try {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            success = true
+
+            val message = when {
+                manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco") ->
+                    "Найдите FunPay Tools → Батарея → Нет ограничений"
+                manufacturer.contains("oneplus") || manufacturer.contains("oplus") ->
+                    "Выберите 'Не оптимизировать' или 'Неограниченный доступ'"
+                manufacturer.contains("samsung") ->
+                    "Снимите все ограничения и удалите из 'Спящих приложений'"
+                manufacturer.contains("huawei") || manufacturer.contains("honor") ->
+                    "Добавьте в 'Защищённые приложения'"
+                manufacturer.contains("vivo") || manufacturer.contains("iqoo") ->
+                    "Включите 'Высокое энергопотребление'"
+                else ->
+                    "Найдите FunPay Tools и выберите 'Не оптимизировать' или 'Нет ограничений'"
+            }
+
+            Toast.makeText(context, message, Toast.LENGTH_LONG).show()
+            return
+        } catch (e: Exception) {
+
+        }
+    }
+
+    if (!success) {
+        Toast.makeText(context, "Открываем общие настройки. Найдите 'Батарея' → 'Оптимизация' → FunPay Tools", Toast.LENGTH_LONG).show()
+        try {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+            intent.data = Uri.parse("package:${context.packageName}")
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+        } catch (e: Exception) {
+            Toast.makeText(context, "Не удалось открыть настройки: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
+fun openAutoStartSettings(context: Context) {
+    val manufacturer = AndroidBuild.MANUFACTURER.lowercase()
+
+    val intents = when {
+        manufacturer.contains("xiaomi") || manufacturer.contains("redmi") || manufacturer.contains("poco") -> listOf(
+            Intent().setComponent(ComponentName("com.miui.securitycenter", "com.miui.permcenter.autostart.AutoStartManagementActivity")),
+            Intent().setComponent(ComponentName("com.xiaomi.smarthome", "com.xiaomi.smarthome.settings.SettingsActivity"))
+        )
+
+        manufacturer.contains("oneplus") || manufacturer.contains("oplus") -> listOf(
+            Intent().setComponent(ComponentName("com.oneplus.security", "com.oneplus.security.chainlaunch.view.ChainLaunchAppListActivity")),
+            Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
+            Intent().setComponent(ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity"))
+        )
+
+        manufacturer.contains("oppo") || manufacturer.contains("realme") -> listOf(
+            Intent().setComponent(ComponentName("com.coloros.safecenter", "com.coloros.safecenter.permission.startup.StartupAppListActivity")),
+            Intent().setComponent(ComponentName("com.oppo.safe", "com.oppo.safe.permission.startup.StartupAppListActivity"))
+        )
+
+        manufacturer.contains("samsung") -> listOf(
+            Intent().setComponent(ComponentName("com.samsung.android.lool", "com.samsung.BatteryActivity")),
+            Intent().setComponent(ComponentName("com.samsung.android.sm", "com.samsung.BatteryActivity"))
+        )
+
+        manufacturer.contains("huawei") || manufacturer.contains("honor") -> listOf(
+            Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.startupmgr.ui.StartupNormalAppListActivity")),
+            Intent().setComponent(ComponentName("com.huawei.systemmanager", "com.huawei.systemmanager.appcontrol.activity.StartupAppControlActivity"))
+        )
+
+        manufacturer.contains("vivo") || manufacturer.contains("iqoo") -> listOf(
+            Intent().setComponent(ComponentName("com.vivo.permissionmanager", "com.vivo.permissionmanager.activity.BgStartUpManagerActivity")),
+            Intent().setComponent(ComponentName("com.iqoo.secure", "com.iqoo.secure.ui.phoneoptimize.BgStartUpManager"))
+        )
+
+        manufacturer.contains("asus") -> listOf(
+            Intent().setComponent(ComponentName("com.asus.mobilemanager", "com.asus.mobilemanager.autostart.AutoStartActivity"))
+        )
+
+        manufacturer.contains("meizu") -> listOf(
+            Intent().setComponent(ComponentName("com.meizu.safe", "com.meizu.safe.security.SHOW_APPSEC"))
+        )
+
+        else -> emptyList()
+    }
+
+    for (intent in intents) {
+        try {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            Toast.makeText(context, "Включите переключатель для FunPay Tools", Toast.LENGTH_LONG).show()
+            return
+        } catch (e: Exception) {
+
+        }
+    }
+
+    Toast.makeText(context, "На вашем устройстве нет отдельных настроек автозапуска (это нормально для чистого Android)", Toast.LENGTH_LONG).show()
+}
+
+@Composable
+fun AuthMethodScreen(navController: NavController) {
+    val context = LocalContext.current
+    val backupManager = remember { BackupManager(context) }
+    val repository = remember { FunPayRepository(context) }
+    val scope = rememberCoroutineScope()
+
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri: Uri? ->
+        uri?.let {
+            scope.launch {
+                try {
+                    val json = withContext(Dispatchers.IO) {
+                        val inputStream = context.contentResolver.openInputStream(uri)
+                        val reader = BufferedReader(InputStreamReader(inputStream))
+                        val text = reader.readText()
+                        reader.close()
+                        text
+                    }
+
+                    val result = backupManager.importBackup(json)
+                    result.onSuccess { backup ->
+
+                        backupManager.applyBackup(
+                            backup = backup,
+                            repository = repository,
+                            context = context,
+                            onThemeChanged = { }
+                        ).onSuccess {
+                            Toast.makeText(context, "Бэкап восстановлен! Входим...", Toast.LENGTH_SHORT).show()
+                            navController.navigate("dashboard") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }.onFailure {
+                            Toast.makeText(context, "Ошибка применения: ${it.message}", Toast.LENGTH_LONG).show()
+                        }
+                    }.onFailure {
+                        Toast.makeText(context, "Неверный формат файла", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(context, "Ошибка чтения: ${e.message}", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
+
+        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xFF1A237E).copy(alpha = 0.3f))) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(Icons.Default.CheckCircle, null, tint = Color(0xFF66BB6A), modifier = Modifier.size(24.dp))
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    "Спасибо, что выбрали FunPay Tools, Дальше - больше.",
+                    color = Color.White,
+                    fontSize = 13.sp
+                )
+            }
+        }
+
+        AuthCard(Icons.Default.Key, "Ввести ключ", "Golden Key") {
+            navController.navigate("manual_login")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        AuthCard(Icons.Default.Public, "Добавить аккаунт", "Войти через сайт FunPay") {
+            navController.navigate("web_login")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+
+        AuthCard(Icons.Default.UploadFile, "Войти через файл импорта", "Если у вас есть сохраненный бэкап приложения .json") {
+            importLauncher.launch(arrayOf("application/json"))
+        }
+    }
+}
+@Composable
+fun AuthCard(icon: ImageVector, title: String, desc: String, onClick: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().liquidGlass().clickable(onClick = onClick).padding(24.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = PurpleAccent, modifier = Modifier.size(32.dp))
+        Spacer(modifier = Modifier.width(16.dp))
+        Column {
+            Text(title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+            Text(desc, fontSize = 12.sp, color = TextSecondary)
+        }
+    }
+}
+
+@Composable
+fun ManualLoginScreen(navController: NavController, repository: FunPayRepository) {
+    var key by remember { mutableStateOf("") }
+    val context = LocalContext.current
+    val theme = remember { ThemeManager.loadTheme(context) }
+    Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        OutlinedTextField(
+            value = key,
+            onValueChange = { key = it.trim().removePrefix("golden_key=").trim() },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Golden Key") },
+            singleLine = true
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Где взять: откройте funpay.com в браузере на ПК, где вы вошли в аккаунт → F12 → Application → Cookies → funpay.com → значение golden_key (32 символа).",
+            fontSize = 12.sp,
+            color = ThemeManager.parseColor(theme.textSecondaryColor),
+            lineHeight = 16.sp
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Button(onClick = {
+            if (key.isNotBlank()) {
+                repository.saveGoldenKey(key)
+                if (repository.getAllAccounts().size > 1) {
+                    navController.navigate("dashboard") { popUpTo(0) { inclusive = true } }
+                } else {
+                    navController.navigate("dashboard") { popUpTo("welcome") { inclusive = true } }
+                }
+            }
+        }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))) { Text("Войти") }
+    }
+}
+
+suspend fun googleTranslate(text: String, targetLang: String = "ru"): String? = withContext(Dispatchers.IO) {
+    try {
+        val encoded = URLEncoder.encode(text, "UTF-8")
+        val url = URL("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=$targetLang&dt=t&q=$encoded")
+        val connection = url.openConnection() as HttpURLConnection
+        connection.setRequestProperty("User-Agent", "Mozilla/5.0")
+        connection.connectTimeout = 5000
+        connection.readTimeout = 5000
+        val response = connection.inputStream.bufferedReader().use { it.readText() }
+        val arr = JSONArray(response)
+        val translations = arr.getJSONArray(0)
+        val sb = StringBuilder()
+        for (i in 0 until translations.length()) {
+            val chunk = translations.getJSONArray(i)
+            if (!chunk.isNull(0)) sb.append(chunk.getString(0))
+        }
+        sb.toString().ifBlank { null }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+/**
+ * Ссылки не на http(s) внутри встроенного браузера: vk://, vkauthorize://, intent://...
+ * WebView их открыть не может и показывает «net::ERR_UNKNOWN_URL_SCHEME».
+ * - intent:// с запасной ссылкой (browser_fallback_url) или https-адресом — открываем её тут же;
+ * - tel:, mailto: — во внешнем приложении;
+ * - приложения VK и прочие — не открываем: вход должен закончиться в этом окне, иначе
+ *   golden_key останется в другом браузере. Страница VK сама предложит вход по паролю или QR.
+ */
+fun handleNonWebScheme(view: WebView?, url: String?, context: Context): Boolean {
+    val u = url ?: return false
+    val scheme = Uri.parse(u).scheme?.lowercase() ?: return false
+    if (scheme in setOf("http", "https", "about", "data", "blob", "javascript", "file")) return false
+    if (scheme == "intent") {
+        val intent = try { Intent.parseUri(u, Intent.URI_INTENT_SCHEME) } catch (_: Exception) { null }
+        val fallback = intent?.getStringExtra("browser_fallback_url")
+            ?: intent?.dataString?.takeIf { it.startsWith("http") }
+        if (!fallback.isNullOrBlank()) {
+            view?.loadUrl(fallback)
+            return true
+        }
+    }
+    if (scheme == "tel" || scheme == "mailto") {
+        try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(u)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) } catch (_: Exception) {}
+        return true
+    }
+    val now = System.currentTimeMillis()
+    if (now - lastSchemeToastAt > 4000) {
+        lastSchemeToastAt = now
+        Toast.makeText(context, "Войдите прямо на этой странице: по паролю или QR-коду. Приложение VK тут не подойдёт", Toast.LENGTH_LONG).show()
+    }
+    return true
+}
+
+private var lastSchemeToastAt = 0L
+
+@Composable
+fun WebLoginScreen(navController: NavController, repository: FunPayRepository) {
+    val context = LocalContext.current
+    var webView: WebView? = null
+    var hasGoldenKey by remember { mutableStateOf(false) }
+    var currentUrl by remember { mutableStateOf("") }
+
+
+    var offsetX by remember { mutableFloatStateOf(0f) }
+    var offsetY by remember { mutableFloatStateOf(0f) }
+
+
+    LaunchedEffect(Unit) {
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.removeAllCookies(null)
+        cookieManager.flush()
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    webView = this
+
+
+                    settings.apply {
+
+                        javaScriptEnabled = true
+
+
+                        domStorageEnabled = true
+                        databaseEnabled = true
+
+
+                        useWideViewPort = true
+                        loadWithOverviewMode = true
+
+
+                        javaScriptCanOpenWindowsAutomatically = true
+                        setSupportMultipleWindows(false)
+
+
+                        cacheMode = WebSettings.LOAD_DEFAULT
+
+
+
+                        userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36"
+
+
+                        if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.LOLLIPOP) {
+                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                        }
+                    }
+
+
+                    val cookieManager = CookieManager.getInstance()
+                    cookieManager.setAcceptCookie(true)
+
+
+                    if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.LOLLIPOP) {
+                        cookieManager.setAcceptThirdPartyCookies(this, true)
+                    }
+
+
+
+                    webViewClient = object : WebViewClient() {
+                        // Вход через VK/Google пытается открыть приложение (vk://, intent://) → err_unknown_url_scheme.
+                        // Оставляем вход в этом окне, иначе куки FunPay сюда не попадут.
+                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean =
+                            handleNonWebScheme(view, request?.url?.toString(), context)
+
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            currentUrl = url ?: ""
+
+
+                            val cookies = CookieManager.getInstance().getCookie(url)
+                            hasGoldenKey = cookies?.contains("golden_key=") == true
+                        }
+
+
+
+
+                    }
+
+
+                    webChromeClient = object : WebChromeClient() {
+                        override fun onProgressChanged(view: WebView?, newProgress: Int) {
+                            super.onProgressChanged(view, newProgress)
+
+                        }
+                    }
+
+
+                    loadUrl("https://funpay.com/account/login")
+                }
+            }
+        )
+
+
+        Box(modifier = Modifier
+            .offset { IntOffset(offsetX.roundToInt(), offsetY.roundToInt()) }
+            .fillMaxWidth(0.9f)
+            .align(Alignment.TopCenter)
+            .padding(top = 16.dp)
+            .pointerInput(Unit) {
+                detectDragGestures { change, dragAmount ->
+                    change.consume()
+                    offsetX += dragAmount.x
+                    offsetY += dragAmount.y
+                }
+            }.clip(RoundedCornerShape(16.dp)).background(ThemeManager.parseColor(ThemeManager.loadTheme(context).surfaceColor).copy(alpha = 0.95f))) {
+            Column(
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "Добавление аккаунта",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = ThemeManager.parseColor(ThemeManager.loadTheme(context).textPrimaryColor)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "1. Войдите в нужный аккаунт\n2. Пройдите капчу и 2FA если требуется\n3. Дождитесь полной загрузки страницы\n4. Нажмите кнопку внизу\n\n(Это окно можно двигать)",
+                    fontSize = 13.sp,
+                    color = ThemeManager.parseColor(ThemeManager.loadTheme(context).textSecondaryColor),
+                    lineHeight = 18.sp
+                )
+            }
+        }
+
+
+        if (hasGoldenKey) {
+            FloatingActionButton(
+                onClick = {
+                    val cookies = CookieManager.getInstance().getCookie(currentUrl)
+                    if (cookies != null && cookies.contains("golden_key=")) {
+                        val keyMatch = cookies.split(";").find { it.trim().startsWith("golden_key=") }
+                        if (keyMatch != null) {
+                            val goldenKey = keyMatch.substringAfter("golden_key=").trim()
+                            if (goldenKey.isNotEmpty()) {
+                                val sessionMatch = cookies.split(";").find { it.trim().startsWith("PHPSESSID=") }
+                                val phpSessionId = sessionMatch?.substringAfter("PHPSESSID=")?.trim() ?: ""
+
+                                // Забираем ВСЕ куки сайта (в т.ч. golden_seal), а не только golden_key/PHPSESSID
+                                val allWebCookies = listOfNotNull(
+                                    CookieManager.getInstance().getCookie("https://funpay.com"),
+                                    cookies
+                                ).joinToString("; ")
+                                repository.addAccountFromWebLogin(goldenKey, phpSessionId, allWebCookies)
+
+
+                                val allAccounts = repository.getAllAccounts()
+
+                                Toast.makeText(context, "Аккаунт добавлен!", Toast.LENGTH_SHORT).show()
+
+
+                                if (allAccounts.isNotEmpty()) {
+
+
+                                    if (allAccounts.size == 1) {
+                                        navController.navigate("dashboard") {
+                                            popUpTo(0) { inclusive = true }
+                                        }
+                                    } else {
+
+                                        navController.navigate("accounts") {
+                                            popUpTo("accounts") { inclusive = true }
+                                        }
+                                    }
+                                } else {
+
+                                    Toast.makeText(context, "Ошибка сохранения!", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        }
+                    } else {
+                        Toast.makeText(context, "Golden Key не найден. Попробуйте войти снова.", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 32.dp),
+                containerColor = ThemeManager.parseColor(ThemeManager.loadTheme(context).accentColor),
+                contentColor = Color.White,
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.Add, null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Добавить этот аккаунт", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            webView?.destroy()
+        }
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+fun FunPayBrowserScreen(navController: NavController, repository: FunPayRepository, theme: AppTheme, pickForConcurent: Boolean = false, startUrl: String? = null) {
+    val context = LocalContext.current
+    var webView by remember { mutableStateOf<WebView?>(null) }
+    var currentUrl by remember { mutableStateOf("https://funpay.com") }
+    var currentTitle by remember { mutableStateOf("") }
+    var canGoBack by remember { mutableStateOf(false) }
+    var canGoForward by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(true) }
+
+    val account = remember { repository.getActiveAccount() }
+
+    // Свайп «назад» (жест системы или кнопка) листает историю сайта, а не выкидывает в приложение.
+    // Из браузера выходим крестиком или «назад» на первой странице.
+    BackHandler(enabled = canGoBack) { webView?.goBack() }
+
+    Column(modifier = Modifier.fillMaxSize().background(ThemeManager.parseColor(theme.backgroundColor))) {
+        Surface(color = ThemeManager.parseColor(theme.surfaceColor)) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.statusBars)
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = { navController.popBackStack() }) {
+                    Icon(Icons.Default.Close, "Закрыть браузер",
+                        tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                }
+                Text(
+                    text = "FunPay",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ThemeManager.parseColor(theme.textPrimaryColor),
+                    modifier = Modifier.weight(1f)
+                )
+                IconButton(onClick = { webView?.goBack() }, enabled = canGoBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null,
+                        tint = if (canGoBack) ThemeManager.parseColor(theme.accentColor)
+                        else ThemeManager.parseColor(theme.textSecondaryColor))
+                }
+                IconButton(onClick = { webView?.goForward() }, enabled = canGoForward) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, null,
+                        tint = if (canGoForward) ThemeManager.parseColor(theme.accentColor)
+                        else ThemeManager.parseColor(theme.textSecondaryColor))
+                }
+                // Обновить страницу; пока грузится, кнопка останавливает загрузку
+                IconButton(onClick = { if (isLoading) webView?.stopLoading() else webView?.reload() }) {
+                    Icon(if (isLoading) Icons.Default.Close else Icons.Default.Refresh,
+                        if (isLoading) "Остановить" else "Обновить",
+                        tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                }
+                IconButton(onClick = {
+                    try {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(currentUrl)))
+                    } catch (_: Exception) {}
+                }) {
+                    Icon(Icons.Default.OpenInNew, null,
+                        tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                }
+            }
+        }
+
+        if (isLoading) {
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth(),
+                color = ThemeManager.parseColor(theme.accentColor),
+                trackColor = ThemeManager.parseColor(theme.surfaceColor)
+            )
+        }
+
+        AndroidView(
+            modifier = Modifier.fillMaxSize(),
+            factory = { ctx ->
+                WebView(ctx).apply {
+                    layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                    )
+
+                    settings.apply {
+                        javaScriptEnabled = true
+                        domStorageEnabled = true
+                        databaseEnabled = true
+                        cacheMode = WebSettings.LOAD_DEFAULT
+                        userAgentString = "Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Mobile Safari/537.36"
+                        if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.LOLLIPOP) {
+                            mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                        }
+                    }
+
+                    val cookieManager = CookieManager.getInstance()
+                    cookieManager.setAcceptCookie(true)
+                    if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.LOLLIPOP) {
+                        cookieManager.setAcceptThirdPartyCookies(this, true)
+                    }
+
+                    account?.let { acc ->
+                        if (acc.goldenKey.isNotEmpty()) {
+                            cookieManager.setCookie("https://funpay.com", "golden_key=${acc.goldenKey}; path=/; domain=.funpay.com")
+                        }
+                        if (acc.phpSessionId.isNotEmpty()) {
+                            cookieManager.setCookie("https://funpay.com", "PHPSESSID=${acc.phpSessionId}; path=/; domain=.funpay.com")
+                        }
+                        cookieManager.flush()
+                    }
+
+                    webViewClient = object : WebViewClient() {
+                        override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean =
+                            handleNonWebScheme(view, request?.url?.toString(), context)
+                        override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
+                            super.doUpdateVisitedHistory(view, url, isReload)
+                            canGoBack = view?.canGoBack() == true
+                            canGoForward = view?.canGoForward() == true
+                            if (url != null) currentUrl = url
+                        }
+                        override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
+                            super.onPageStarted(view, url, favicon)
+                            isLoading = true
+                            currentUrl = url ?: currentUrl
+                            canGoBack = view?.canGoBack() == true
+                            canGoForward = view?.canGoForward() == true
+                        }
+                        override fun onPageFinished(view: WebView?, url: String?) {
+                            super.onPageFinished(view, url)
+                            isLoading = false
+                            currentUrl = url ?: currentUrl
+                            currentTitle = view?.title ?: ""
+                            canGoBack = view?.canGoBack() == true
+                            canGoForward = view?.canGoForward() == true
+                        }
+                    }
+                    webChromeClient = WebChromeClient()
+
+
+                    setOnLongClickListener {
+                        val hit = (it as? WebView)?.hitTestResult ?: return@setOnLongClickListener false
+                        val value: String? = when (hit.type) {
+                            WebView.HitTestResult.SRC_ANCHOR_TYPE,
+                            WebView.HitTestResult.SRC_IMAGE_ANCHOR_TYPE -> hit.extra
+                            WebView.HitTestResult.IMAGE_TYPE -> hit.extra
+                            else -> null
+                        }
+                        if (!value.isNullOrBlank()) {
+                            try {
+                                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                cm.setPrimaryClip(ClipData.newPlainText("url", value))
+                                Toast.makeText(context, "Скопировано: $value", Toast.LENGTH_SHORT).show()
+                                return@setOnLongClickListener true
+                            } catch (_: Exception) {}
+                        }
+                        false
+                    }
+
+                    loadUrl(startUrl ?: "https://funpay.com")
+                }.also { webView = it }
+            }
+        )
+    }
+
+
+
+
+    if (pickForConcurent) {
+        val nodeId = remember(currentUrl) { ConcurentManager.parseNodeId(currentUrl) }
+        val isChatPage = currentUrl.contains("/chat/")
+        val isLotsPage = currentUrl.contains("/lots/")
+        if (nodeId != null && (isChatPage || isLotsPage)) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomEnd) {
+                Column(horizontalAlignment = Alignment.End,
+                    modifier = Modifier.padding(bottom = 24.dp, end = 16.dp)) {
+
+                    if (isLotsPage) {
+                        Surface(
+                            color = ThemeManager.parseColor(theme.surfaceColor).copy(alpha = 0.95f),
+                            shape = RoundedCornerShape(10.dp),
+                            shadowElevation = 4.dp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        ) {
+                            Text(
+                                "📢 Чат этой игры: node=$nodeId",
+                                color = ThemeManager.parseColor(theme.textPrimaryColor),
+                                fontSize = 11.sp,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                            )
+                        }
+                    }
+                    ExtendedFloatingActionButton(
+                        onClick = {
+
+                            val prefs = context.getSharedPreferences("funpay_prefs", Context.MODE_PRIVATE)
+
+                            val name = currentTitle.trim().split(Regex("\\s+"))
+                                .filter { it.isNotBlank() }.take(2).joinToString(" ")
+                                .ifBlank { "Чат $nodeId" }
+                            prefs.edit()
+                                .putString("concurent_pending_node", nodeId)
+                                .putString("concurent_pending_name", name)
+                                .apply()
+                            Toast.makeText(context, "Добавлено: $name", Toast.LENGTH_SHORT).show()
+                            navController.popBackStack()
+                        },
+                        containerColor = ThemeManager.parseColor(theme.accentColor),
+                        contentColor = Color.White
+                    ) {
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("В Concurent")
+                    }
+                }
+            }
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose { webView?.destroy() }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DashboardScreen(navController: NavController, repository: FunPayRepository, currentTheme: AppTheme, onThemeChanged: (AppTheme) -> Unit) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    var selectedTab by remember { mutableIntStateOf(0) }
+    var chats by remember { mutableStateOf<List<ChatItem>>(emptyList()) }
+    val logs by LogManager.logs.collectAsState()
+    var updateInfo by remember { mutableStateOf<UpdateInfo?>(null) }
+    var showThemeCustomization by remember { mutableStateOf(false) }
+
+
+    var isLoadingChats by remember { mutableStateOf(true) }
+    var hasLoadedOnce by remember { mutableStateOf(false) }
+
+
+    val activeAccount = repository.getActiveAccount()
+    val accountKey = activeAccount?.id ?: "none"
+
+    DisposableEffect(Unit) {
+
+        val prefs = context.getSharedPreferences("funpay_prefs", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("app_fully_disabled", false)) {
+            if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.O) {
+                context.startForegroundService(Intent(context, FunPayService::class.java))
+            } else {
+                context.startService(Intent(context, FunPayService::class.java))
+            }
+        }
+
+        onDispose { }
+    }
+
+    LaunchedEffect(Unit) {
+        launch {
+            updateInfo = repository.checkForUpdates()
+        }
+    }
+
+
+    LaunchedEffect(accountKey) {
+
+        isLoadingChats = true
+        chats = emptyList()
+
+        while (true) {
+            try {
+                val loadedChats = repository.getChats()
+
+
+
+
+                val floodSettings = ChatFolderManager.getFloodChat(context)
+                chats = if (floodSettings.enabled) {
+                    val flood = ChatItem(
+                        id = "flood",
+                        username = floodSettings.customDisplayName.ifBlank { "Флудилка" },
+                        lastMessage = "Секретный общий чат FunPay",
+                        isUnread = false,
+                        avatarUrl = "https://funpay.com/img/layout/avatar.png",
+                        date = ""
+                    )
+
+                    val existing = loadedChats.any { it.id == "flood" }
+                    if (existing) loadedChats else (listOf(flood) + loadedChats)
+                } else {
+                    loadedChats
+                }
+
+                if (!hasLoadedOnce) {
+                    hasLoadedOnce = true
+                }
+                isLoadingChats = false
+            } catch (e: Exception) {
+                LogManager.addLog("❌ Ошибка загрузки чатов: ${e.message}")
+                isLoadingChats = false
+            }
+            delay(5000)
+        }
+    }
+
+    if (showThemeCustomization) {
+        ThemeCustomizationScreen(
+            currentTheme = currentTheme,
+            onThemeChanged = onThemeChanged,
+            onBack = { showThemeCustomization = false }
+        )
+    } else {
+        Scaffold(
+            containerColor = Color.Transparent,
+            topBar = {
+                TopAppBar(
+                    title = {
+                        // Как в логотипе: "FunPay" — основным цветом, "Tools" — акцентным
+                        Text(
+                            buildAnnotatedString {
+                                withStyle(SpanStyle(color = ThemeManager.parseColor(currentTheme.textPrimaryColor))) { append("FunPay ") }
+                                withStyle(SpanStyle(color = ThemeManager.parseColor(currentTheme.accentColor))) { append("Tools") }
+                            },
+                            fontWeight = FontWeight.Black
+                        )
+                    },
+                    actions = {
+
+                        IconButton(onClick = {
+                            scope.launch {
+                                val unreadChats = chats.filter { it.isUnread }
+                                if (unreadChats.isNotEmpty()) {
+                                    Toast.makeText(context, "Читаю ${unreadChats.size} чатов...", Toast.LENGTH_SHORT).show()
+
+                                    unreadChats.forEach { chat ->
+                                        launch {
+                                            repository.getChatHistory(chat.id)
+                                        }
+                                        delay(385)
+                                    }
+
+                                    chats = chats.map { it.copy(isUnread = false) }
+                                    Toast.makeText(context, "Все чаты прочитаны!", Toast.LENGTH_SHORT).show()
+                                } else {
+                                    Toast.makeText(context, "Нет непрочитанных чатов", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.DoneAll,
+                                contentDescription = "ReadAll",
+                                tint = ThemeManager.parseColor(currentTheme.textPrimaryColor)
+                            )
+                        }
+
+
+                        IconButton(onClick = { navController.navigate("funpay_browser") }) {
+                            IconButton(onClick = { navController.navigate("funpay_browser") }) {
+                                Icon(
+                                    painter = painterResource(R.drawable.ic_funpay_arrows),
+                                    contentDescription = "FunPay",
+                                    tint = ThemeManager.parseColor(currentTheme.accentColor),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+
+
+                        IconButton(onClick = { navController.navigate("accounts") }) {
+                            Icon(
+                                imageVector = Icons.Default.AccountCircle,
+                                contentDescription = "Accounts",
+                                tint = ThemeManager.parseColor(currentTheme.textPrimaryColor)
+                            )
+                        }
+
+
+                        IconButton(onClick = {
+                            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/fptools"))
+                            context.startActivity(intent)
+                        }) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Telegram",
+                                tint = ThemeManager.parseColor(currentTheme.textPrimaryColor)
+                            )
+                        }
+
+
+                        IconButton(onClick = { navController.navigate("settings") }) {
+                            Icon(Icons.Default.Settings, "Settings", tint = ThemeManager.parseColor(currentTheme.textPrimaryColor))
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = ThemeManager.parseColor(currentTheme.surfaceColor))
+                )
+            },
+
+            bottomBar = {
+                Surface(
+                    color = ThemeManager.parseColor(currentTheme.surfaceColor),
+                    shadowElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .navigationBarsPadding()
+                            .height(56.dp)
+                            .padding(horizontal = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val unreadCount = chats.count { it.isUnread }
+                        listOf(
+                            0 to Icons.Default.Chat,
+                            1 to Icons.Default.Tune,
+                            6 to Icons.Default.DynamicFeed,
+                            2 to Icons.Default.Person,
+                            5 to Icons.Default.ShoppingBag,
+                            3 to Icons.Default.Support,
+                            7 to Icons.Default.Extension,
+                            4 to Icons.Default.Terminal
+                        ).forEach { (index, icon) ->
+                            val isSelected = selectedTab == index
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxHeight()
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { selectedTab = index },
+                                contentAlignment = Alignment.Center
+                            ) {
+
+                                Box(
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .clip(CircleShape)
+                                        .background(if (isSelected) ThemeManager.parseColor(currentTheme.accentColor).copy(alpha = 0.2f) else Color.Transparent),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    val iconTint = if (isSelected) ThemeManager.parseColor(currentTheme.accentColor) else ThemeManager.parseColor(currentTheme.textSecondaryColor)
+                                    if (index == 0 && unreadCount > 0) {
+                                        BadgedBox(badge = {
+                                            Badge(containerColor = ThemeManager.parseColor(currentTheme.accentColor)) {
+                                                Text(if (unreadCount > 99) "99+" else unreadCount.toString(), fontSize = 9.sp, color = Color.White)
+                                            }
+                                        }) { Icon(icon, null, tint = iconTint) }
+                                    } else {
+                                        Icon(icon, null, tint = iconTint)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        ) { padding ->
+            Column(modifier = Modifier.padding(padding).fillMaxSize()) {
+                if (updateInfo?.hasUpdate == true) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(ThemeManager.parseColor(currentTheme.accentColor))
+                            .clickable {
+                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(updateInfo!!.htmlUrl))
+                                context.startActivity(intent)
+                            }
+                            .padding(12.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Download, null, tint = Color.White)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Доступна новая версия ${updateInfo!!.newVersion}! Нажмите, чтобы скачать.", color = Color.White, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+
+                when (selectedTab) {
+                    0 -> ChatListView(chats, isLoadingChats && !hasLoadedOnce, navController, currentTheme, repository) { selectedTab = 3 }
+                    1 -> ControlView(navController, repository, currentTheme, onNavigateToSupport = { selectedTab = 3 })
+                    2 -> ProfileScreen(
+                        repository = repository,
+                        theme = currentTheme,
+                        onOpenTariffs = { navController.navigate("donations") },
+                        onOpenLots = { navController.navigate("lots") },
+                        onLogout = {
+                            navController.navigate("welcome") { popUpTo(0) }
+                        }
+                    )
+                    3 -> SupportScreenView(repository, currentTheme) { selectedTab = 0 }
+                    4 -> ConsoleView(logs, currentTheme, navController)
+                    5 -> SalesScreen(repository = repository, theme = currentTheme, navController = navController)
+                    6 -> FeedScreen(navController, repository, currentTheme)
+                    7 -> PluginsMainScreen(navController, repository, currentTheme, isTab = true)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ChatListView(
+    chats: List<ChatItem>,
+    isLoading: Boolean,
+    navController: NavController,
+    theme: AppTheme,
+    repository: FunPayRepository,
+    onNavigateToSupport: () -> Unit
+) {
+    val context = LocalContext.current
+
+
+    val banInfo by repository.banInfo.collectAsState()
+    if (banInfo != null) {
+        AccountBannedView(banInfo = banInfo!!, theme = theme, onNavigateToSupport = onNavigateToSupport)
+        return
+    }
+
+
+
+    var mode by remember { mutableStateOf(ChatListMode.PERSONAL) }
+
+    var folders by remember { mutableStateOf(ChatFolderManager.getFolders(context)) }
+    var labels by remember { mutableStateOf(ChatFolderManager.getLabels(context)) }
+    var chatLabels by remember { mutableStateOf(ChatFolderManager.getChatLabels(context)) }
+    var selectedFolderId by remember { mutableStateOf<String?>(null) }
+    var showManageFolders by remember { mutableStateOf(false) }
+    var showManageLabels by remember { mutableStateOf(false) }
+
+
+    var personalQuery by remember { mutableStateOf("") }
+
+    val allFolderIds = remember(folders) { listOf(null) + folders.map { it.id } }
+    val pagerState = rememberPagerState(
+        initialPage = 0,
+        pageCount = { allFolderIds.size }
+    )
+
+    LaunchedEffect(pagerState.currentPage) {
+        val id = allFolderIds.getOrNull(pagerState.currentPage)
+        if (selectedFolderId != id) {
+            selectedFolderId = id
+        }
+    }
+
+    LaunchedEffect(selectedFolderId, folders) {
+        val idx = allFolderIds.indexOf(selectedFolderId)
+        if (idx >= 0 && pagerState.currentPage != idx) {
+            pagerState.scrollToPage(idx)
+        } else if (idx == -1) {
+            selectedFolderId = null
+        }
+    }
+
+    if (showManageFolders) {
+        ManageFoldersDialog(
+            folders = folders,
+            onFoldersChanged = { folders = it; ChatFolderManager.saveFolders(context, it) },
+            onDismiss = { showManageFolders = false },
+            theme = theme
+        )
+    }
+
+    if (showManageLabels) {
+        ManageLabelsDialog(
+            labels = labels,
+            onLabelsChanged = { labels = it; ChatFolderManager.saveLabels(context, it) },
+            onDismiss = { showManageLabels = false },
+            theme = theme
+        )
+    }
+
+    var showNewChat by remember { mutableStateOf(false) }
+    if (showNewChat) {
+        NewChatDialog(repository = repository, navController = navController, theme = theme, onDismiss = { showNewChat = false })
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+
+
+        ChatModeSegmentedControl(
+            mode = mode,
+            onModeChanged = { mode = it },
+            theme = theme
+        )
+
+        when (mode) {
+            ChatListMode.GAMES -> {
+
+                GameChatsView(navController = navController, theme = theme)
+            }
+
+            ChatListMode.GLOBAL -> {
+                GlobalChatView(navController = navController, theme = theme, repository = repository)
+            }
+
+            ChatListMode.PERSONAL -> {
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(36.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        ChatFolderTabs(
+                            folders = folders,
+                            selectedFolderId = selectedFolderId,
+                            onFolderSelected = { selectedFolderId = it },
+                            onManageFolders = { showManageFolders = true },
+                            theme = theme
+                        )
+                    }
+                    ThinChatSearch(
+                        query = personalQuery,
+                        onQueryChanged = { personalQuery = it },
+                        theme = theme,
+                        modifier = Modifier.padding(end = 10.dp),
+                        placeholder = "Чат"
+                    )
+                }
+
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize()
+                ) { page ->
+                    val pageFolderId = allFolderIds.getOrNull(page)
+
+                    val floodSettings = remember(chats) { ChatFolderManager.getFloodChat(context) }
+                    val filteredByFolder = remember(chats, pageFolderId, folders, chatLabels, floodSettings) {
+
+
+                        fun chatInFolder(chatId: String, folderId: String?): Boolean {
+                            if (folderId == null) return false
+                            if (chatId == "flood" && floodSettings.enabled && floodSettings.folderId == folderId) return true
+                            return folders.firstOrNull { it.id == folderId }?.chatIds?.contains(chatId) == true
+                        }
+                        when (pageFolderId) {
+                            null -> {
+
+
+                                if (floodSettings.enabled && floodSettings.folderId != null) {
+                                    chats.filter { it.id != "flood" }
+                                } else {
+                                    chats
+                                }
+                            }
+                            "preset_unread" -> chats.filter { it.isUnread }
+                            "preset_labeled" -> chats.filter { chatLabels[it.id]?.isNotEmpty() == true }
+                            "preset_archived" -> chats.filter { chatInFolder(it.id, "preset_archived") }
+                            else -> chats.filter { chatInFolder(it.id, pageFolderId) }
+                        }
+                    }
+
+
+                    val filtered = remember(filteredByFolder, personalQuery) {
+                        if (personalQuery.isBlank()) filteredByFolder
+                        else {
+                            val q = personalQuery.trim().lowercase(Locale.ROOT)
+                            filteredByFolder.filter { chat ->
+                                chat.username.lowercase(Locale.ROOT).contains(q) ||
+                                        chat.lastMessage.lowercase(Locale.ROOT).contains(q) ||
+                                        chat.id.lowercase(Locale.ROOT).contains(q)
+                            }
+                        }
+                    }
+
+                    if (isLoading) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator(
+                                    color = ThemeManager.parseColor(theme.accentColor),
+                                    modifier = Modifier.size(48.dp)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text("Загрузка чатов...", color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 14.sp)
+                            }
+                        }
+                    } else if (filtered.isEmpty()) {
+                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.ChatBubbleOutline, null, tint = ThemeManager.parseColor(theme.textSecondaryColor), modifier = Modifier.size(64.dp))
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    when {
+                                        personalQuery.isNotBlank() -> "Ничего не нашли по «$personalQuery»"
+                                        pageFolderId != null -> "Нет чатов в этой папке"
+                                        else -> "Нет чатов"
+                                    },
+                                    color = ThemeManager.parseColor(theme.textSecondaryColor)
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(filtered.distinctBy { it.id }, key = { it.id }) { chat ->
+                                ChatItemView(
+                                    chat = chat,
+                                    navController = navController,
+                                    theme = theme,
+                                    labels = labels,
+                                    chatLabels = chatLabels,
+                                    folders = folders,
+                                    onChatLabelsChanged = { chatLabels = it; ChatFolderManager.saveChatLabels(context, it) },
+                                    onFoldersChanged = { folders = it; ChatFolderManager.saveFolders(context, it) },
+                                    onManageFolders = { showManageFolders = true },
+                                    onManageLabels = { showManageLabels = true }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+        // «+» — написать новому (или старому) собеседнику по нику/ссылке, как в расширении
+        if (mode == ChatListMode.PERSONAL) {
+            FloatingActionButton(
+                onClick = { showNewChat = true },
+                containerColor = ThemeManager.parseColor(theme.accentColor),
+                contentColor = Color.White,
+                shape = CircleShape,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 16.dp)
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Новый чат")
+            }
+        }
+    }
+}
+
+@Composable
+fun AccountBannedView(banInfo: BanInfo, theme: AppTheme, onNavigateToSupport: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Block,
+            contentDescription = null,
+            tint = Color(0xFFE53935),
+            modifier = Modifier.size(72.dp)
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = "Аккаунт заблокирован",
+            color = ThemeManager.parseColor(theme.textPrimaryColor),
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "К сожалению, FunPay ограничил доступ к вашему аккаунту. Мы рекомендуем написать обращение в техническую поддержку через наше приложение.",
+            color = ThemeManager.parseColor(theme.textSecondaryColor),
+            fontSize = 14.sp,
+            textAlign = TextAlign.Center,
+            lineHeight = 18.sp
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        Box(modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f, fill = false).clip(RoundedCornerShape(16.dp)).background(Color(0xFFE53935).copy(alpha = 0.1f)).border(1.dp, Color(0xFFE53935).copy(alpha = 0.5f), RoundedCornerShape(16.dp))) {
+            Column(
+                modifier = Modifier
+                    .padding(20.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Text(
+                    text = "Официальный ответ FunPay:",
+                    color = Color(0xFFE53935),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Text(
+                    text = banInfo.reason,
+                    color = ThemeManager.parseColor(theme.textPrimaryColor),
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+
+        Button(
+            onClick = onNavigateToSupport,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(54.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor)),
+            shape = RoundedCornerShape(14.dp)
+        ) {
+            Icon(Icons.Default.SupportAgent, contentDescription = null, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Написать в поддержку FunPay", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+        }
+    }
+}
+
+@Composable
+fun ChatItemView(
+    chat: ChatItem,
+    navController: NavController,
+    theme: AppTheme,
+    labels: List<ChatLabel> = emptyList(),
+    chatLabels: Map<String, List<String>> = emptyMap(),
+    folders: List<ChatFolder> = emptyList(),
+    onChatLabelsChanged: (Map<String, List<String>>) -> Unit = {},
+    onFoldersChanged: (List<ChatFolder>) -> Unit = {},
+    onManageFolders: () -> Unit = {},
+    onManageLabels: () -> Unit = {}
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    val assignedLabels = labels.filter { label ->
+        chatLabels[chat.id]?.contains(label.id) == true
+    }
+    val isArchived = folders.find { it.id == "preset_archived" }?.chatIds?.contains(chat.id) == true
+
+    var labelTooltip by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+
+    fun showTooltip(name: String) {
+        labelTooltip = name
+        scope.launch {
+            delay(1500)
+            labelTooltip = null
+        }
+    }
+
+    if (showMenu) {
+        ChatItemMenu(
+            chatId = chat.id,
+            labels = labels,
+            chatLabels = chatLabels,
+            folders = folders,
+            onAddLabel = { labelId ->
+                val cur = (chatLabels[chat.id] ?: emptyList()).toMutableList()
+                if (cur.contains(labelId)) cur.remove(labelId) else cur.add(labelId)
+                onChatLabelsChanged(chatLabels + (chat.id to cur))
+            },
+            onAddToFolder = { fid ->
+                onFoldersChanged(folders.map { f ->
+                    if (f.id != fid) f else {
+                        val ids = f.chatIds.toMutableList()
+                        if (ids.contains(chat.id)) ids.remove(chat.id) else ids.add(chat.id)
+                        f.copy(chatIds = ids)
+                    }
+                })
+            },
+            onArchiveToggle = {
+                val archiveFolder = folders.find { it.id == "preset_archived" }
+                if (archiveFolder == null) {
+                    val newFolder = presetFolderDefs.find { it.id == "preset_archived" }!!
+                        .copy(chatIds = listOf(chat.id))
+                    onFoldersChanged(folders + newFolder)
+                } else {
+                    onFoldersChanged(folders.map { f ->
+                        if (f.id != "preset_archived") f else {
+                            val ids = f.chatIds.toMutableList()
+                            if (ids.contains(chat.id)) ids.remove(chat.id) else ids.add(chat.id)
+                            f.copy(chatIds = ids)
+                        }
+                    })
+                }
+            },
+            isArchived = isArchived,
+            onCreateFolder = { onManageFolders() },
+            onManageLabels = { onManageLabels() },
+            onDismiss = { showMenu = false },
+            theme = theme
+        )
+    }
+
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .clickable { navController.navigate("chat/${chat.id}/${chat.username}") }.clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(contentAlignment = Alignment.BottomCenter) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.width(48.dp)
+                ) {
+                    AsyncImage(
+                        model = chat.avatarUrl,
+                        contentDescription = "Avatar",
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(CircleShape)
+                            .background(Color.Gray)
+                            .clickable(enabled = !GameChatsRegistry.isSystemChatId(chat.id)) {
+                                navController.navigate("profile/${chat.id}/${chat.username}")
+                            },
+                        contentScale = ContentScale.Crop
+                    )
+                    if (assignedLabels.isNotEmpty()) {
+                        Spacer(Modifier.height(3.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            assignedLabels.take(4).forEachIndexed { index, label ->
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .clip(CircleShape)
+                                        .background(ThemeManager.parseColor(label.color))
+                                        .clickable { showTooltip(label.name) }
+                                )
+                                if (index < assignedLabels.take(4).lastIndex) Spacer(Modifier.width(2.dp))
+                            }
+                        }
+                    }
+                }
+
+                if (labelTooltip != null) {
+                    Box(
+                        modifier = Modifier
+                            .offset(y = (-54).dp)
+                            .background(Color.Black.copy(alpha = 0.75f), RoundedCornerShape(6.dp))
+                            .padding(horizontal = 6.dp, vertical = 3.dp)
+                    ) {
+                        Text(labelTooltip!!, color = Color.White, fontSize = 11.sp, maxLines = 1)
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    EpicNicknameText(
+                        text = chat.username,
+                        style = LocalTextStyle.current.copy(
+                            color = ThemeManager.parseColor(theme.textPrimaryColor)
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false)
+                    )
+                }
+                Text(
+                    chatPreviewText(chat.lastMessage),
+                    color = ThemeManager.parseColor(theme.textSecondaryColor),
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(chat.date, fontSize = 11.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                    Spacer(Modifier.width(2.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(22.dp)
+                            .clip(CircleShape)
+                            .clickable { showMenu = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            Icons.Default.MoreVert,
+                            null,
+                            tint = ThemeManager.parseColor(theme.textSecondaryColor),
+                            modifier = Modifier.size(15.dp)
+                        )
+                    }
+                }
+                if (chat.isUnread) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(ThemeManager.parseColor(theme.accentColor), CircleShape)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ControlView(navController: NavController, repository: FunPayRepository, theme: AppTheme, onNavigateToSupport: () -> Unit = {}) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    var showDialog by remember { mutableStateOf<String?>(null) }
+    var autoResponse by remember { mutableStateOf(repository.getSetting("auto_response")) }
+    var pushNotifications by remember { mutableStateOf(repository.getSetting("push_notifications")) }
+    var raiseEnabled by remember { mutableStateOf(repository.getSetting("raise_enabled")) }
+    var raiseInterval by remember { mutableIntStateOf(repository.getRaiseInterval()) }
+    var confirmSettings by remember { mutableStateOf(repository.getOrderConfirmSettings()) }
+    var reviewSettings by remember { mutableStateOf(repository.getReviewReplySettings()) }
+    var refundSettings by remember { mutableStateOf(repository.getAutoRefundSettings()) }
+    var greetingSettings by remember { mutableStateOf(repository.getGreetingSettings()) }
+    var autoStartOnBoot by remember { mutableStateOf(repository.getSetting("auto_start_on_boot")) }
+    var busySettings by remember { mutableStateOf(ChatFolderManager.getBusyMode(context)) }
+    var floodSettings by remember { mutableStateOf(ChatFolderManager.getFloodChat(context)) }
+    var scheduleSettings by remember { mutableStateOf(ChatFolderManager.getBusySchedule(context)) }
+    var showScheduleDialog by remember { mutableStateOf(false) }
+    var appFullyDisabled by remember {
+        mutableStateOf(context.getSharedPreferences("funpay_prefs", Context.MODE_PRIVATE).getBoolean("app_fully_disabled", false))
+    }
+    var dumperSettings by remember { mutableStateOf(repository.getDumperSettings()) }
+    var autoTicketSettings by remember { mutableStateOf(repository.getAutoTicketSettings()) }
+    var reminderSettings by remember { mutableStateOf(repository.getOrderReminderSettings()) }
+    var isSendingTickets by remember { mutableStateOf(false) }
+    var ticketSendResult by remember { mutableStateOf<String?>(null) }
+    var showReviewAiGate by remember { mutableStateOf(false) }
+    var showBusyDialog by remember { mutableStateOf(false) }
+    var alwaysOnline by remember { mutableStateOf(repository.getSetting("always_online")) }
+    var readMarkSettings by remember { mutableStateOf(repository.getReadMarkSettings()) }
+    var aiVarPermissions by remember { mutableStateOf(repository.getAiVarPermissions()) }
+    var showReadMarkDialog by remember { mutableStateOf(false) }
+    var showAiVarDialog by remember { mutableStateOf(false) }
+    var showPremiumFor by remember { mutableStateOf<PremiumFeature?>(null) }
+
+    fun isAllowed(f: String) = !busySettings.enabled || when (f) {
+        "raise" -> busySettings.keepRaise
+        "autoResp" -> busySettings.keepAutoResponse
+        "greeting" -> busySettings.keepGreeting
+        else -> false
+    }
+
+    if (showReadMarkDialog) {
+        ReadMarkSettingsDialog(
+            settings = readMarkSettings,
+            theme = theme,
+            onSave = { readMarkSettings = it; repository.saveReadMarkSettings(it) },
+            onDismiss = { showReadMarkDialog = false }
+        )
+    }
+    if (showAiVarDialog) {
+        AiVarPermissionsDialog(
+            settings = aiVarPermissions,
+            theme = theme,
+            onSave = { aiVarPermissions = it; repository.saveAiVarPermissions(it) },
+            onDismiss = { showAiVarDialog = false }
+        )
+    }
+    if (showReviewAiGate) {
+        PremiumDialog(feature = PremiumFeature.REVIEW_AI, theme = theme,
+            onDismiss = { showReviewAiGate = false }, onUnlocked = { showReviewAiGate = false })
+    }
+    showPremiumFor?.let { f ->
+        PremiumDialog(
+            feature = f, theme = theme,
+            onDismiss = { showPremiumFor = null },
+            onUnlocked = { showPremiumFor = null }
+        )
+    }
+    if (showBusyDialog) {
+        BusyModeDialog(settings = busySettings,
+            onSave = { busySettings = it; ChatFolderManager.saveBusyMode(context, it) },
+            onDismiss = { showBusyDialog = false }, theme = theme)
+    }
+    if (showScheduleDialog) {
+        BusyScheduleDialog(
+            settings = scheduleSettings,
+            onSave = { scheduleSettings = it; ChatFolderManager.saveBusySchedule(context, it) },
+            onDismiss = { showScheduleDialog = false },
+            theme = theme
+        )
+    }
+
+
+    val tabs = listOf(
+        "Быстро"   to Icons.Default.FlashOn,
+        "Чат"      to Icons.Default.ChatBubbleOutline,
+        "Заказы"   to Icons.Default.ShoppingCart,
+        "Торговля" to Icons.Default.TrendingUp,
+        "Прочее"   to Icons.Default.Build
+    )
+
+    val tabActiveCounts = listOf(
+        listOf(pushNotifications, autoStartOnBoot, alwaysOnline, busySettings.enabled, scheduleSettings.enabled).count { it },
+        listOf(autoResponse, greetingSettings.enabled, reviewSettings.enabled, repository.getFeedbackBonusSettings().enabled).count { it },
+        listOf(confirmSettings.enabled, reminderSettings.enabled, autoTicketSettings.enabled, refundSettings.enabled).count { it },
+        listOf(raiseEnabled, dumperSettings.enabled, ConcurentManager.getSettings(context).enabled).count { it },
+        listOf(floodSettings.enabled).count { it }
+    )
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    var searchQuery by rememberSaveable { mutableStateOf("") }
+
+
+
+
+    val functionsMap = remember {
+        mapOf(
+
+            "push уведомления push-уведомления уведомления" to (0 to 0),
+            "автозапуск после перезагрузки автозапуск перезагрузка boot" to (0 to 1),
+            "всегда онлайн always online онлайн" to (0 to 2),
+            "режим занятости занятость busy" to (0 to 3),
+            "расписание занятости расписание schedule" to (0 to 4),
+
+            "автоответ auto reply" to (1 to 0),
+            "приветствие greeting приветственное" to (1 to 1),
+            "автоответ на отзывы отзыв review" to (1 to 2),
+            "бонусы за отзыв бонус feedback" to (1 to 3),
+            "нечиталка непрочитанные unread" to (1 to 4),
+            "ии переменные ai-переменные ai variables" to (1 to 5),
+
+            "просьба отзыва отзыв" to (2 to 0),
+            "напоминание заказы reminder" to (2 to 1),
+            "авто обращение в тп auto ticket автоматическое обращение поддержка" to (2 to 2),
+            "авто возврат refund возврат" to (2 to 3),
+
+            "автоподнятие поднятие лотов raise" to (3 to 0),
+            "автовыдача auto delivery выдача товаров" to (3 to 1),
+            "демпинг dumper xd dumper" to (3 to 2),
+            "concurent конкурент" to (3 to 3),
+
+            "каталог готовых шаблонов каталог templates" to (4 to 0),
+            "секретный чат secret chat" to (4 to 1),
+            "шаблоны сообщений шаблоны messages templates" to (4 to 2),
+            "always on screen aos экран блокировки" to (4 to 3),
+            "глобальный поиск пользователей поиск users" to (4 to 4)
+        )
+    }
+
+
+    val currentMatch = remember(searchQuery) {
+        val q = searchQuery.trim().lowercase()
+        if (q.isBlank()) null
+        else functionsMap.entries.firstOrNull { (k, _) -> k.contains(q) }?.value
+    }
+
+
+    val highlightTabName = currentMatch?.let { (t, _) -> tabs.getOrNull(t)?.first }
+
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+
+    LaunchedEffect(searchQuery, currentMatch) {
+        val match = currentMatch ?: return@LaunchedEffect
+        val (tabIdx, itemIdxInTab) = match
+        if (tabIdx != selectedTab) selectedTab = tabIdx
+
+        kotlinx.coroutines.delay(100)
+
+
+        val targetIndex = 3 + itemIdxInTab
+        try { listState.animateScrollToItem(targetIndex) } catch (_: Exception) {}
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            contentPadding = PaddingValues(vertical = 12.dp)
+        ) {
+            item {
+                ControlHeroCard(
+                    theme = theme,
+                    appFullyDisabled = appFullyDisabled,
+                    busyEnabled = busySettings.enabled,
+                    activeCount = listOf(
+                        autoResponse, raiseEnabled, pushNotifications, alwaysOnline,
+                        greetingSettings.enabled, reviewSettings.enabled, refundSettings.enabled,
+                        confirmSettings.enabled, dumperSettings.enabled, scheduleSettings.enabled
+                    ).count { it },
+                    onToggleFullDisable = {
+                        val newValue = !appFullyDisabled
+                        appFullyDisabled = newValue
+                        val prefs = context.getSharedPreferences("funpay_prefs", Context.MODE_PRIVATE)
+                        prefs.edit().putBoolean("app_fully_disabled", newValue).apply()
+                        if (newValue) {
+                            prefs.edit().putBoolean("app_fully_disabled_prev_autostart", autoStartOnBoot).putBoolean("app_fully_disabled_prev_push", pushNotifications).apply()
+                            try { context.stopService(Intent(context, FunPayService::class.java)) } catch (_: Exception) {}
+                            autoStartOnBoot = false; repository.setSetting("auto_start_on_boot", false)
+                            pushNotifications = false; repository.setSetting("push_notifications", false)
+                            try { val nm = context.getSystemService(NotificationManager::class.java); nm?.cancelAll() } catch (_: Exception) {}
+                            Toast.makeText(context, "Приложение выключено. Фон и уведомления отключены.", Toast.LENGTH_LONG).show()
+                        } else {
+                            val prevAutoStart = prefs.getBoolean("app_fully_disabled_prev_autostart", true)
+                            val prevPush = prefs.getBoolean("app_fully_disabled_prev_push", true)
+                            autoStartOnBoot = prevAutoStart; repository.setSetting("auto_start_on_boot", prevAutoStart)
+                            pushNotifications = prevPush; repository.setSetting("push_notifications", prevPush)
+                            try {
+                                if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.O) context.startForegroundService(Intent(context, FunPayService::class.java))
+                                else context.startService(Intent(context, FunPayService::class.java))
+                            } catch (_: Exception) {}
+                            Toast.makeText(context, "Приложение снова работает.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                )
+            }
+            item {
+                ControlSearchBar(
+                    query = searchQuery,
+                    theme = theme,
+                    foundInTab = highlightTabName,
+                    onChange = { searchQuery = it }
+                )
+            }
+            item {
+                ControlTabBar(
+                    tabs = tabs,
+                    activeCounts = tabActiveCounts,
+                    selected = selectedTab,
+                    theme = theme,
+                    onSelect = { selectedTab = it }
+                )
+            }
+
+
+            if (selectedTab == 0) {
+                item {
+                    SettingCard("Push-уведомления", "Уведомления о новых сообщениях", pushNotifications, Icons.Default.Notifications, theme) {
+                        pushNotifications = !pushNotifications
+                        repository.setSetting("push_notifications", pushNotifications)
+                    }
+                }
+                item {
+                    SettingCard("Автозапуск после перезагрузки", "Запускать сервис при включении телефона", autoStartOnBoot, Icons.Default.Power, theme) {
+                        autoStartOnBoot = !autoStartOnBoot
+                        repository.setSetting("auto_start_on_boot", autoStartOnBoot)
+                    }
+                }
+                item {
+                    SettingCard("Всегда онлайн", "Пингует FunPay каждые 4 минуты — аккаунт всегда показывает статус «онлайн»", alwaysOnline, Icons.Default.Wifi, theme) {
+                        alwaysOnline = !alwaysOnline
+                        repository.setSetting("always_online", alwaysOnline)
+                    }
+                }
+                item {
+                    BusyModeCard(settings = busySettings,
+                        onToggle = {
+                            val nowEnabled = !busySettings.enabled
+                            val u = busySettings.copy(enabled = nowEnabled, enabledAt = if (nowEnabled) System.currentTimeMillis() else 0L)
+                            busySettings = u; ChatFolderManager.saveBusyMode(context, u)
+                        },
+                        onConfigure = { showBusyDialog = true }, theme = theme)
+                }
+                item {
+
+                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Schedule, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(28.dp))
+                                Spacer(Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Расписание занятости", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                                    Text(
+                                        "Автоматически включает режим занятости в указанное время (рабочее время, перерыв, вечер, ночь).",
+                                        fontSize = 11.sp, color = ThemeManager.parseColor(theme.textSecondaryColor), lineHeight = 14.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = scheduleSettings.enabled,
+                                    onCheckedChange = {
+                                        scheduleSettings = scheduleSettings.copy(enabled = it)
+                                        ChatFolderManager.saveBusySchedule(context, scheduleSettings)
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = ThemeManager.parseColor(theme.accentColor),
+                                        checkedTrackColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.4f)
+                                    )
+                                )
+                            }
+                            if (scheduleSettings.enabled) {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    if (scheduleSettings.slots.isEmpty()) "Слотов ещё нет — добавьте хотя бы один."
+                                    else "Слотов: ${scheduleSettings.slots.size}",
+                                    fontSize = 12.sp, color = ThemeManager.parseColor(theme.textSecondaryColor)
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                Button(
+                                    onClick = { showScheduleDialog = true },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                ) { Text("Настроить слоты", color = ThemeManager.parseColor(theme.textPrimaryColor)) }
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            if (selectedTab == 1) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().alpha(if (!isAllowed("autoResp")) 0.4f else 1f)) {
+                        Column {
+                            SettingCard("Автоответ", "Быстрые ответы на сообщения", autoResponse, Icons.Default.AutoAwesome, theme) {
+                                if (isAllowed("autoResp")) { autoResponse = !autoResponse; repository.setSetting("auto_response", autoResponse) }
+                            }
+                            if (autoResponse) {
+                                Button(onClick = { if (isAllowed("autoResp")) showDialog = "commands" },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                ) { Text("Настроить команды", color = ThemeManager.parseColor(theme.textPrimaryColor)) }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().alpha(if (!isAllowed("greeting")) 0.4f else 1f)) {
+                        Column {
+                            SettingCard("Приветствие", "Автоматически здороваться с покупателями", greetingSettings.enabled, Icons.Default.WavingHand, theme) {
+                                if (isAllowed("greeting")) { greetingSettings = greetingSettings.copy(enabled = !greetingSettings.enabled); repository.saveGreetingSettings(greetingSettings) }
+                            }
+                            if (greetingSettings.enabled) {
+                                Button(onClick = { if (isAllowed("greeting")) showDialog = "greeting" },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                ) { Text("Настроить приветствие", color = ThemeManager.parseColor(theme.textPrimaryColor)) }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().alpha(if (busySettings.enabled) 0.4f else 1f)) {
+                        Column {
+                            SettingCard("Автоответ на отзывы", "Автоматически отвечать на отзывы", reviewSettings.enabled, Icons.Default.Star, theme) {
+                                if (!busySettings.enabled) {
+                                    val s = reviewSettings.copy(enabled = !reviewSettings.enabled)
+                                    reviewSettings = s; repository.saveReviewReplySettings(s)
+                                }
+                            }
+                            if (reviewSettings.enabled) {
+                                Button(onClick = { if (!busySettings.enabled) showDialog = "review_settings" },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(if (reviewSettings.useAi) Icons.Default.AutoAwesome else Icons.Default.List, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(16.dp))
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Настроить", color = ThemeManager.parseColor(theme.textPrimaryColor))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    var bonusSettingsState by remember { mutableStateOf(repository.getFeedbackBonusSettings()) }
+
+
+                    LaunchedEffect(showDialog) {
+                        if (showDialog == null) bonusSettingsState = repository.getFeedbackBonusSettings()
+                    }
+                    Box(modifier = Modifier.fillMaxWidth().alpha(if (busySettings.enabled) 0.4f else 1f)) {
+                        Column {
+                            SettingCard(
+                                "Бонусы за отзыв",
+                                "Отдельные правила-бонусы под разные лоты",
+                                bonusSettingsState.enabled,
+                                Icons.Default.CardGiftcard,
+                                theme
+                            ) {
+                                if (!busySettings.enabled) {
+                                    val s = bonusSettingsState.copy(enabled = !bonusSettingsState.enabled)
+                                    bonusSettingsState = s
+                                    repository.saveFeedbackBonusSettings(s)
+                                }
+                            }
+                            if (bonusSettingsState.enabled) {
+                                Button(
+                                    onClick = { if (!busySettings.enabled) showDialog = "feedback_bonus" },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.Rule,
+                                            null,
+                                            tint = ThemeManager.parseColor(theme.accentColor),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(
+                                            if (bonusSettingsState.rules.isEmpty())
+                                                "Добавить правила"
+                                            else
+                                                "Правил: ${bonusSettingsState.rules.size}",
+                                            color = ThemeManager.parseColor(theme.textPrimaryColor)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.VisibilityOff, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(28.dp))
+                                Spacer(Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Нечиталка", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                                    Text(
+                                        "Детальная настройка, какие сообщения приложению читать, а какие нет",
+                                        fontSize = 11.sp, color = ThemeManager.parseColor(theme.textSecondaryColor), lineHeight = 14.sp
+                                    )
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Button(
+                                    onClick = { showReadMarkDialog = true },
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                ) { Text("Настроить", color = ThemeManager.parseColor(theme.textPrimaryColor)) }
+                            }
+                        }
+                    }
+                }
+                item {
+                    val aiVarIsPro = LicenseManager.isProActive()
+                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Box {
+                                    Icon(
+                                        Icons.Default.Psychology, null,
+                                        tint = if (aiVarIsPro) ThemeManager.parseColor(theme.accentColor) else Color.Gray.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(28.dp)
+                                    )
+                                    if (!aiVarIsPro) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(14.dp)
+                                                .offset(x = 18.dp, y = (-2).dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFFFC107)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Lock, null, tint = Color.Black, modifier = Modifier.size(9.dp))
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("ИИ-переменные", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                                    Text(
+                                        if (aiVarIsPro) "Управляй данными, которые ИИ видит при переработке текста"
+                                        else "Только для подписчиков PRO",
+                                        fontSize = 11.sp,
+                                        color = if (aiVarIsPro) ThemeManager.parseColor(theme.textSecondaryColor) else Color(0xFFFFC107),
+                                        lineHeight = 14.sp
+                                    )
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Button(
+                                    onClick = {
+                                        if (aiVarIsPro) showAiVarDialog = true
+                                        else showPremiumFor = PremiumFeature.AI_VARIABLES
+                                    },
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                ) {
+                                    Text(
+                                        if (aiVarIsPro) "Настроить" else "PRO",
+                                        color = if (aiVarIsPro) ThemeManager.parseColor(theme.textPrimaryColor) else Color(0xFFFFC107)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            if (selectedTab == 2) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().alpha(if (busySettings.enabled) 0.4f else 1f)) {
+                        Column {
+                            SettingCard("Просьба отзыва", "Писать сообщение после подтверждения заказа", confirmSettings.enabled, Icons.Default.ThumbUp, theme) {
+                                if (!busySettings.enabled) {
+                                    val s = confirmSettings.copy(enabled = !confirmSettings.enabled)
+                                    confirmSettings = s; repository.saveOrderConfirmSettings(s)
+                                }
+                            }
+                            if (confirmSettings.enabled) {
+                                Button(onClick = { if (!busySettings.enabled) showDialog = "confirm_settings" },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                ) { Text("Настроить текст", color = ThemeManager.parseColor(theme.textPrimaryColor)) }
+                            }
+                        }
+                    }
+                }
+                item {
+                    OrderReminderCard(
+                        settings = reminderSettings, theme = theme,
+                        onToggle = { reminderSettings = reminderSettings.copy(enabled = !reminderSettings.enabled); repository.saveOrderReminderSettings(reminderSettings) },
+                        onConfigure = { showDialog = "order_reminder" }
+                    )
+                }
+                item {
+                    AutoTicketCard(
+                        settings = autoTicketSettings, isSending = isSendingTickets, lastResult = ticketSendResult, theme = theme,
+                        onToggle = {
+                            if (LicenseManager.hasAccess(PremiumFeature.AUTO_TICKET)) {
+                                autoTicketSettings = autoTicketSettings.copy(enabled = !autoTicketSettings.enabled)
+                                repository.saveAutoTicketSettings(autoTicketSettings)
+                            } else {
+                                showPremiumFor = PremiumFeature.AUTO_TICKET
+                            }
+                        },
+                        onConfigure = {
+                            if (LicenseManager.hasAccess(PremiumFeature.AUTO_TICKET)) showDialog = "auto_ticket"
+                            else showPremiumFor = PremiumFeature.AUTO_TICKET
+                        },
+                        onSendNow = {
+                            if (!isSendingTickets) {
+                                isSendingTickets = true; ticketSendResult = null
+                                scope.launch {
+                                    val result = repository.sendAutoSupportTickets()
+                                    ticketSendResult = when {
+                                        result.errorMessage?.contains("лимит", ignoreCase = true) == true -> "⛔ Лимит: 1 запрос в день"
+                                        result.errorMessage != null -> "❌ ${result.errorMessage}"
+                                        result.ticketsCreated == 0 -> "ℹ️ Нет заказов для отправки"
+                                        else -> "✅ Отправлено ${result.ticketsCreated} тикет(ов), ${result.ordersProcessed} заказов"
+                                    }
+                                    isSendingTickets = false
+                                }
+                            }
+                        },
+                        onOpenSupport = onNavigateToSupport
+                    )
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().alpha(if (busySettings.enabled) 0.4f else 1f)) {
+                        Column {
+                            PremiumSettingCard("Авто-возврат", "Возврат денег при плохом отзыве на дешёвый товар", refundSettings.enabled, Icons.Default.MoneyOff, theme, feature = PremiumFeature.AUTO_REFUND) {
+                                if (!busySettings.enabled) {
+                                    val s = refundSettings.copy(enabled = !refundSettings.enabled)
+                                    refundSettings = s; repository.saveAutoRefundSettings(s)
+                                }
+                            }
+                            if (refundSettings.enabled) {
+                                Button(onClick = { if (!busySettings.enabled) showDialog = "refund_settings" },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                ) { Text("Настроить условия", color = ThemeManager.parseColor(theme.textPrimaryColor)) }
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            if (selectedTab == 3) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().alpha(if (!isAllowed("raise")) 0.4f else 1f)) {
+                        Column {
+                            SettingCard("Автоподнятие", "Поднимать лоты автоматически", raiseEnabled, Icons.Default.TrendingUp, theme) {
+                                if (isAllowed("raise")) { raiseEnabled = !raiseEnabled; repository.setSetting("raise_enabled", raiseEnabled) }
+                            }
+                            if (raiseEnabled) {
+                                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+
+
+
+
+
+                                    val smartRaise = repository.isSmartRaiseEnabled()
+                                    val summary = if (smartRaise)
+                                        "Выбрано: Умный режим"
+                                    else
+                                        "Выбрано: Интервал $raiseInterval мин"
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                summary,
+                                                color = ThemeManager.parseColor(theme.textPrimaryColor),
+                                                fontSize = 13.sp, fontWeight = FontWeight.Medium
+                                            )
+                                            Text(
+                                                "Нажми, чтобы выбрать режим и интервал.",
+                                                color = ThemeManager.parseColor(theme.textSecondaryColor),
+                                                fontSize = 10.sp, lineHeight = 13.sp
+                                            )
+                                        }
+                                        OutlinedButton(
+                                            onClick = { showDialog = "raise_settings" },
+                                            colors = ButtonDefaults.outlinedButtonColors(
+                                                contentColor = ThemeManager.parseColor(theme.accentColor)
+                                            )
+                                        ) {
+                                            Icon(Icons.Default.Tune, null, modifier = Modifier.size(14.dp))
+                                            Spacer(Modifier.width(4.dp))
+                                            Text("Настроить", fontSize = 12.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    var autoDeliverySettings by remember { mutableStateOf(AutoDeliveryManager.getSettings(context)) }
+
+                    AutoDeliveryCard(
+                        settings = autoDeliverySettings,
+                        theme = theme,
+                        onToggle = {
+                            if (LicenseManager.hasAccess(PremiumFeature.AUTO_DELIVERY)) {
+                                val newSt = autoDeliverySettings.copy(enabled = !autoDeliverySettings.enabled)
+                                autoDeliverySettings = newSt
+                                AutoDeliveryManager.saveSettings(context, newSt)
+                            } else {
+                                showPremiumFor = PremiumFeature.AUTO_DELIVERY
+                            }
+                        },
+                        onConfigure = {
+                            if (LicenseManager.hasAccess(PremiumFeature.AUTO_DELIVERY)) showDialog = "auto_delivery"
+                            else showPremiumFor = PremiumFeature.AUTO_DELIVERY
+                        }
+                    )
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().alpha(if (busySettings.enabled) 0.4f else 1f)) {
+                        Column {
+                            StrictProOnlySettingCard(
+                                title = "XD Dumper", subtitle = "Авто-демпинг цен конкурентов",
+                                checked = dumperSettings.enabled, icon = Icons.Default.TrendingDown, theme = theme,
+                                onCheckedChange = {
+                                    if (!busySettings.enabled) { dumperSettings = dumperSettings.copy(enabled = it); repository.saveDumperSettings(dumperSettings) }
+                                },
+                                onProRequired = { navController.navigate("donations"); Toast.makeText(context, "Эта функция доступна только в PRO версии!", Toast.LENGTH_SHORT).show() }
+                            )
+                            if (dumperSettings.enabled && LicenseManager.isProActive()) {
+                                Button(onClick = { if (!busySettings.enabled) navController.navigate("xd_dumper") },
+                                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                ) { Text("Настроить лоты для демпинга", color = ThemeManager.parseColor(theme.textPrimaryColor)) }
+                            }
+                        }
+                    }
+                }
+                item {
+                    val concurentEnabled = remember { mutableStateOf(ConcurentManager.getSettings(context).enabled) }
+                    val concurentIsPro = LicenseManager.isProActive()
+
+                    val prefsLocal = context.getSharedPreferences("funpay_prefs", Context.MODE_PRIVATE)
+                    LaunchedEffect(Unit) {
+                        if (prefsLocal.getString("concurent_pending_node", null) != null && showDialog == null) {
+                            if (concurentIsPro) showDialog = "concurent"
+                        }
+                    }
+                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box {
+                                    Icon(
+                                        Icons.Default.Campaign, null,
+                                        tint = if (concurentIsPro) ThemeManager.parseColor(theme.accentColor) else Color.Gray.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                    if (!concurentIsPro) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(14.dp)
+                                                .offset(x = 20.dp, y = (-2).dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFFFFC107)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(Icons.Default.Lock, null, tint = Color.Black, modifier = Modifier.size(9.dp))
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.width(16.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text("Concurent", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                                    Text(
+                                        when {
+                                            !concurentIsPro -> "Только для подписчиков PRO"
+                                            concurentEnabled.value -> "Публикации идут по таймеру"
+                                            else -> "Автопубликации в общих чатах FunPay"
+                                        },
+                                        fontSize = 12.sp,
+                                        color = if (!concurentIsPro) Color(0xFFFFC107)
+                                        else ThemeManager.parseColor(theme.textSecondaryColor)
+                                    )
+                                }
+                                Switch(
+                                    checked = concurentEnabled.value && concurentIsPro,
+                                    onCheckedChange = { on ->
+                                        if (!concurentIsPro) {
+                                            showPremiumFor = PremiumFeature.CONCURENT
+                                            return@Switch
+                                        }
+                                        concurentEnabled.value = on
+                                        val s = ConcurentManager.getSettings(context)
+                                        val next = if (on) s.copy(
+                                            enabled = true,
+                                            postsSinceEnable = 0,
+                                            currentMessageIndex = 0,
+                                            currentGameIndex = 0,
+                                            lastPostAt = 0L,
+                                            nextPostAt = System.currentTimeMillis() + s.intervalSeconds * 1000L
+                                        ) else s.copy(enabled = false)
+                                        ConcurentManager.saveSettings(context, next)
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = ThemeManager.parseColor(theme.accentColor),
+                                        checkedTrackColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.4f)
+                                    )
+                                )
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            Button(
+                                onClick = {
+                                    if (concurentIsPro) showDialog = "concurent"
+                                    else showPremiumFor = PremiumFeature.CONCURENT
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                            ) {
+                                Icon(Icons.Default.Tune, null, modifier = Modifier.size(16.dp),
+                                    tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                                Spacer(Modifier.width(6.dp))
+                                Text(
+                                    if (concurentIsPro) "Настроить тексты и чаты" else "PRO",
+                                    color = if (concurentIsPro) ThemeManager.parseColor(theme.textPrimaryColor) else Color(0xFFFFC107)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+
+            if (selectedTab == 4) {
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().clickable { navController.navigate("catalog") }.clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity)).border(1.dp, ThemeManager.parseColor(theme.accentColor).copy(0.3f), RoundedCornerShape(theme.borderRadius.dp))) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.CloudDownload, contentDescription = null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(32.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Каталог готовых шаблонов", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                                Text("Скачивай и делись автоответами, шаблонами, настройками ИИ и оформлениями текстов.", fontSize = 12.sp, color = ThemeManager.parseColor(theme.textSecondaryColor), lineHeight = 14.sp)
+                            }
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = ThemeManager.parseColor(theme.textSecondaryColor))
+                        }
+                    }
+                }
+                item {
+                    val floodFolders = remember { ChatFolderManager.getFolders(context) }
+                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.VisibilityOff, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(28.dp))
+                                Spacer(Modifier.width(14.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text("Секретный чат FunPay", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                                    Text(
+                                        "Общий чат по ссылке funpay.com/chat/?node=flood. В обычном списке его нет — добавим сами.",
+                                        fontSize = 11.sp, color = ThemeManager.parseColor(theme.textSecondaryColor), lineHeight = 14.sp
+                                    )
+                                }
+                                Switch(
+                                    checked = floodSettings.enabled,
+                                    onCheckedChange = {
+                                        floodSettings = floodSettings.copy(enabled = it)
+                                        ChatFolderManager.saveFloodChat(context, floodSettings)
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = ThemeManager.parseColor(theme.accentColor),
+                                        checkedTrackColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.4f)
+                                    )
+                                )
+                            }
+
+                            if (floodSettings.enabled) {
+                                Spacer(Modifier.height(10.dp))
+
+
+                                OutlinedTextField(
+                                    value = floodSettings.customDisplayName,
+                                    onValueChange = {
+                                        floodSettings = floodSettings.copy(customDisplayName = it)
+                                        ChatFolderManager.saveFloodChat(context, floodSettings)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Как назвать чат в списке", fontSize = 11.sp) },
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                        unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                        focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                                        cursorColor = ThemeManager.parseColor(theme.accentColor)
+                                    )
+                                )
+
+                                Spacer(Modifier.height(4.dp))
+
+
+                                Text("Группа (папка):", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                Spacer(Modifier.height(4.dp))
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    FilterChip(
+                                        selected = floodSettings.folderId == null,
+                                        onClick = {
+                                            floodSettings = floodSettings.copy(folderId = null)
+                                            ChatFolderManager.saveFloodChat(context, floodSettings)
+                                        },
+                                        label = { Text("Без папки", fontSize = 11.sp) },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = ThemeManager.parseColor(theme.accentColor),
+                                            selectedLabelColor = Color.White
+                                        )
+                                    )
+                                    floodFolders.filter { !it.isPreset || it.id == "preset_archived" }.forEach { folder ->
+                                        FilterChip(
+                                            selected = floodSettings.folderId == folder.id,
+                                            onClick = {
+                                                floodSettings = floodSettings.copy(folderId = folder.id)
+                                                ChatFolderManager.saveFloodChat(context, floodSettings)
+                                            },
+                                            label = { Text(folder.name, fontSize = 11.sp) },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = ThemeManager.parseColor(theme.accentColor),
+                                                selectedLabelColor = Color.White
+                                            )
+                                        )
+                                    }
+                                }
+                                if (floodFolders.none { !it.isPreset || it.id == "preset_archived" }) {
+                                    Text("Создайте папку в списке чатов, чтобы выбрать её здесь.",
+                                        fontSize = 10.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                                }
+                            }
+                        }
+                    }
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.ShortText, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(32.dp))
+                                Spacer(Modifier.width(16.dp))
+                                Text("Шаблоны сообщений", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), modifier = Modifier.weight(1f))
+                                Button(onClick = { showDialog = "templates" }, colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))) {
+                                    Text("Настроить", color = ThemeManager.parseColor(theme.textPrimaryColor))
+                                }
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            Text("Быстрая вставка готовых фраз в чате", fontSize = 12.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                        }
+                    }
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().clickable {
+                        if (LicenseManager.hasAccess(PremiumFeature.AOS)) navController.navigate("aos_settings")
+                        else showPremiumFor = PremiumFeature.AOS
+                    }.clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            val aosUnlocked = LicenseManager.hasAccess(PremiumFeature.AOS)
+                            Box {
+                                Icon(Icons.Default.PhoneAndroid, contentDescription = null,
+                                    tint = if (aosUnlocked) Color(0xFF00E676) else Color.Gray.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(32.dp))
+                                if (!aosUnlocked) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(14.dp)
+                                            .offset(x = 20.dp, y = (-2).dp)
+                                            .clip(CircleShape)
+                                            .background(Color(0xFFFFC107)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(Icons.Default.Lock, null, tint = Color.Black, modifier = Modifier.size(9.dp))
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Always On Screen (AOS)", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                                Text(
+                                    if (aosUnlocked) "Использовать старый телефон как дисплей статистики"
+                                    else "PRO или разблокировка через рекламу",
+                                    fontSize = 12.sp,
+                                    color = if (aosUnlocked) ThemeManager.parseColor(theme.textSecondaryColor) else Color(0xFFFFC107)
+                                )
+                            }
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = ThemeManager.parseColor(theme.textSecondaryColor))
+                        }
+                    }
+                }
+                item {
+                    Box(modifier = Modifier.fillMaxWidth().clickable { navController.navigate("rmthub_search") }.clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Public, contentDescription = null, tint = Color(0xFF288CD7), modifier = Modifier.size(32.dp))
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Глобальный поиск пользователей", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                                Text("Поиск по нику через API RMTHub.com", fontSize = 12.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                            }
+                            Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = ThemeManager.parseColor(theme.textSecondaryColor))
+                        }
+                    }
+                }
+                item { Spacer(Modifier.height(8.dp)) }
+            }
+
+            item { Spacer(Modifier.height(80.dp)) }
+        }
+
+
+
+        val highlightAccent = remember(theme.accentColor) {
+            val hsl = FloatArray(3)
+            ColorUtils.colorToHSL(
+                AndroidColor.parseColor(theme.accentColor), hsl
+            )
+            hsl[1] = (hsl[1] * 1.15f).coerceAtMost(1f)
+            hsl[2] = (hsl[2] + 0.18f).coerceIn(0.4f, 0.85f)
+            Color(ColorUtils.HSLToColor(hsl))
+        }
+        currentMatch?.let { (_, itemIdxInTab) ->
+            val targetIndex = 3 + itemIdxInTab
+            val visibleItem = listState.layoutInfo.visibleItemsInfo.firstOrNull { it.index == targetIndex }
+            if (visibleItem != null) {
+                val density = androidx.compose.ui.platform.LocalDensity.current
+                val infinite = rememberInfiniteTransition(label = "highlightPulse")
+                val pulseAlpha by infinite.animateFloat(
+                    initialValue = 0.45f, targetValue = 0.95f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(700, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "pulseAlpha"
+                )
+                val yOffsetDp = with(density) { visibleItem.offset.toDp() }
+                val heightDp = with(density) { visibleItem.size.toDp() }
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .offset(y = yOffsetDp)
+                        .fillMaxWidth()
+                        .height(heightDp)
+                        .border(
+                            width = 2.dp,
+                            color = highlightAccent.copy(alpha = pulseAlpha),
+                            shape = RoundedCornerShape(theme.borderRadius.dp)
+                        )
+                )
+            }
+        }
+    }
+
+    when (showDialog) {
+        "commands" -> CommandsDialog(repository, theme) { showDialog = null }
+        "greeting" -> GreetingDialog(repository, greetingSettings, theme) { greetingSettings = it; repository.saveGreetingSettings(it); showDialog = null }
+        "confirm_settings" -> OrderConfirmDialog(repository, theme) { showDialog = null; confirmSettings = repository.getOrderConfirmSettings() }
+        "auto_delivery" -> AutoDeliverySettingsDialog(theme = theme) { showDialog = null }
+        "concurent" -> {
+
+            val prefsC = context.getSharedPreferences("funpay_prefs", Context.MODE_PRIVATE)
+            val pendingNode = prefsC.getString("concurent_pending_node", null)
+            val pendingName = prefsC.getString("concurent_pending_name", null)
+            val pending = if (pendingNode != null) pendingNode to (pendingName ?: "") else null
+            ConcurentDialog(
+                repository = repository,
+                theme = theme,
+                onDismiss = { showDialog = null },
+                onOpenBrowser = {
+                    showDialog = null
+                    navController.navigate("funpay_browser_pick")
+                },
+                pendingBrowserResult = pending,
+                onBrowserResultConsume = {
+                    prefsC.edit().remove("concurent_pending_node").remove("concurent_pending_name").apply()
+                }
+            )
+        }
+        "review_settings" -> ReviewSettingsDialog(repository = repository, theme = theme,
+            onNeedsPro = { showDialog = null; showReviewAiGate = true },
+            onDismiss = { showDialog = null; reviewSettings = repository.getReviewReplySettings() })
+        "refund_settings" -> AutoRefundDialog(repository, theme) { showDialog = null; refundSettings = repository.getAutoRefundSettings() }
+        "templates" -> TemplatesDialog(repository, theme) { showDialog = null }
+        "auto_ticket" -> AutoTicketDialog(settings = autoTicketSettings, theme = theme,
+            onSave = { autoTicketSettings = it; repository.saveAutoTicketSettings(it); showDialog = null },
+            onDismiss = { showDialog = null })
+        "order_reminder" -> OrderReminderDialog(settings = reminderSettings, theme = theme,
+            onSave = { reminderSettings = it; repository.saveOrderReminderSettings(it); showDialog = null },
+            onDismiss = { showDialog = null })
+        "raise_settings" -> RaiseSettingsDialog(repository = repository, theme = theme,
+            onDismiss = {
+                showDialog = null
+
+
+                raiseInterval = repository.getRaiseInterval()
+            })
+        "feedback_bonus" -> FeedbackBonusDialog(repository = repository, theme = theme,
+            onDismiss = { showDialog = null })
+    }
+}
+
+@Composable
+internal fun ControlSectionHeader(title: String, icon: ImageVector, theme: AppTheme) {
+    Row(modifier = Modifier.fillMaxWidth().padding(top = 6.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.65f), modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(5.dp))
+        Text(title, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold, color = ThemeManager.parseColor(theme.textSecondaryColor), letterSpacing = 0.9.sp)
+        Spacer(Modifier.width(8.dp))
+        HorizontalDivider(modifier = Modifier.weight(1f), color = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.18f))
+    }
+}
+
+/**
+ * Компактная статус-полоса в шапке вкладки Управление.
+ * Тонкая, без gradient. Цветная точка-индикатор + статус-текст + быстрые actions.
+ */
+@Composable
+fun ControlHeroCard(
+    theme: AppTheme,
+    appFullyDisabled: Boolean,
+    busyEnabled: Boolean,
+    activeCount: Int,
+    onToggleFullDisable: () -> Unit
+) {
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    val surface = ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity)
+
+    val statusColor = when {
+        appFullyDisabled -> Color(0xFFFF5252)
+        busyEnabled -> Color(0xFFFFA000)
+        else -> Color(0xFF00C853)
+    }
+    val statusText = when {
+        appFullyDisabled -> "FunPay Tools выключен"
+        busyEnabled -> "Режим занятости"
+        else -> "FunPay Tools активен"
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(theme.borderRadius.dp))
+            .background(surface)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            val infinite = rememberInfiniteTransition(label = "pulse")
+            val pulse by infinite.animateFloat(
+                initialValue = 0.55f, targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(900, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "pulseAlpha"
+            )
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(statusColor.copy(alpha = if (appFullyDisabled) 1f else pulse))
+            )
+            Spacer(Modifier.width(10.dp))
+
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(statusText, color = textPrimary, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                Text(
+                    if (appFullyDisabled) "Все функции остановлены"
+                    else "Сейчас включено всего $activeCount функций",
+                    color = textSecondary, fontSize = 11.sp
+                )
+            }
+
+
+            if (appFullyDisabled) {
+                Button(
+                    onClick = onToggleFullDisable,
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00C853)),
+                    shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Icon(Icons.Default.PlayArrow, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("Включить", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
+            } else {
+
+                IconButton(
+                    onClick = onToggleFullDisable,
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(Color.White.copy(alpha = 0.06f))
+                ) {
+                    Icon(
+                        Icons.Default.PowerSettingsNew,
+                        null,
+                        tint = textSecondary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Поисковая строка с подсказкой "найдено в табе X" при наличии совпадений.
+ */
+@Composable
+fun ControlSearchBar(
+    query: String,
+    theme: AppTheme,
+    foundInTab: String? = null,
+    onChange: (String) -> Unit
+) {
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val surface = ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity)
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(surface)
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.Search, null,
+                tint = textSecondary.copy(alpha = 0.7f),
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(10.dp))
+            androidx.compose.foundation.text.BasicTextField(
+                value = query,
+                onValueChange = onChange,
+                modifier = Modifier.weight(1f),
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(color = textPrimary, fontSize = 13.sp),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(accent),
+                decorationBox = { inner ->
+                    if (query.isEmpty()) {
+                        Text("Найти функцию…", color = textSecondary.copy(alpha = 0.6f), fontSize = 13.sp)
+                    }
+                    inner()
+                }
+            )
+            if (query.isNotEmpty()) {
+                Icon(
+                    Icons.Default.Close, null,
+                    tint = textSecondary,
+                    modifier = Modifier.size(18.dp).clickable { onChange("") }
+                )
+            }
+        }
+
+        if (query.isNotBlank()) {
+            Row(
+                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (foundInTab != null) {
+                    Icon(
+                        Icons.Default.Check, null,
+                        tint = accent,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        "Найдено в разделе \"$foundInTab\"",
+                        color = textSecondary,
+                        fontSize = 11.sp
+                    )
+                } else {
+                    Icon(
+                        Icons.Default.Info, null,
+                        tint = textSecondary.copy(alpha = 0.6f),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text(
+                        "Ничего не найдено",
+                        color = textSecondary.copy(alpha = 0.7f),
+                        fontSize = 11.sp
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * TabBar: иконка + текст вертикально, активный таб обведён скруглённым контуром
+ * "ярче" акцента, фон прозрачный, без бейджей.
+ */
+@Composable
+fun ControlTabBar(
+    tabs: List<Pair<String, ImageVector>>,
+    activeCounts: List<Int>,
+    selected: Int,
+    theme: AppTheme,
+    onSelect: (Int) -> Unit
+) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+
+
+
+
+    val brightAccent = remember(theme.accentColor) {
+        val hsl = FloatArray(3)
+        ColorUtils.colorToHSL(
+            AndroidColor.parseColor(theme.accentColor), hsl
+        )
+        hsl[1] = (hsl[1] * 1.15f).coerceAtMost(1f)
+        hsl[2] = (hsl[2] + 0.18f).coerceIn(0.4f, 0.85f)
+        Color(ColorUtils.HSLToColor(hsl))
+    }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        tabs.forEachIndexed { idx, (title, icon) ->
+            val isSel = idx == selected
+            val shape = RoundedCornerShape(14.dp)
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(shape)
+                    .border(
+                        width = if (isSel) 1.5.dp else 0.dp,
+                        color = if (isSel) brightAccent else Color.Transparent,
+                        shape = shape
+                    )
+                    .clickable { onSelect(idx) }
+                    .padding(vertical = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    icon, null,
+                    tint = if (isSel) brightAccent else textSecondary.copy(alpha = 0.75f),
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(Modifier.height(5.dp))
+                Text(
+                    title,
+                    color = if (isSel) textPrimary else textSecondary.copy(alpha = 0.85f),
+                    fontSize = 11.5.sp,
+                    fontWeight = if (isSel) FontWeight.SemiBold else FontWeight.Normal,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun AutoTicketCard(
+    settings: AutoTicketSettings, isSending: Boolean, lastResult: String?, theme: AppTheme,
+    onToggle: () -> Unit, onConfigure: () -> Unit, onSendNow: () -> Unit, onOpenSupport: () -> Unit
+) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val surface = ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(surface)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.ConfirmationNumber, null, tint = accent, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Авто-тикет в ТП", fontWeight = FontWeight.Bold, color = textPrimary)
+                    Text("Подтверждение заказов через поддержку FunPay", fontSize = 12.sp, color = textSecondary)
+                }
+                Switch(checked = settings.enabled, onCheckedChange = { onToggle() }, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = accent))
+            }
+            if (settings.enabled || lastResult != null) {
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = textSecondary.copy(alpha = 0.12f))
+                Spacer(Modifier.height(8.dp))
+            }
+            lastResult?.let { result ->
+                val resultColor = when { result.startsWith("✅") -> Color(0xFF4CAF50); result.startsWith("⛔") -> Color(0xFFFF5722); result.startsWith("❌") -> Color(0xFFF44336); else -> textSecondary }
+                Text(result, fontSize = 12.sp, color = resultColor, modifier = Modifier.fillMaxWidth().background(resultColor.copy(alpha = 0.08f), RoundedCornerShape(6.dp)).padding(8.dp))
+                Spacer(Modifier.height(8.dp))
+            }
+            if (settings.enabled) {
+                Text("Заказы старше ${settings.orderAgeHours}ч · до ${settings.maxOrdersPerTicket} в тикете · лимит ${settings.dailyLimit}/день · авто каждые ${settings.autoIntervalHours}ч",
+                    fontSize = 11.sp, color = textSecondary, modifier = Modifier.fillMaxWidth().background(textSecondary.copy(alpha = 0.06f), RoundedCornerShape(6.dp)).padding(8.dp))
+                Spacer(Modifier.height(10.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick = onConfigure, modifier = Modifier.weight(1f),
+                        border = BorderStroke(1.dp, accent.copy(alpha = 0.5f)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)) {
+                        Icon(Icons.Default.Settings, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Настроить", fontSize = 12.sp)
+                    }
+                    Button(onClick = onSendNow, enabled = !isSending, modifier = Modifier.weight(1f), colors = ButtonDefaults.buttonColors(containerColor = accent)) {
+                        if (isSending) {
+                            CircularProgressIndicator(modifier = Modifier.size(14.dp), color = Color.White, strokeWidth = 2.dp)
+                            Spacer(Modifier.width(6.dp))
+                            Text("...", color = Color.White, fontSize = 12.sp)
+                        } else {
+                            Icon(Icons.Default.Send, null, modifier = Modifier.size(14.dp), tint = Color.White)
+                            Spacer(Modifier.width(4.dp))
+                            Text("Отправить", color = Color.White, fontSize = 12.sp)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
+                TextButton(onClick = onOpenSupport, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.textButtonColors(contentColor = accent.copy(alpha = 0.8f))) {
+                    Text("Открыть вкладку Поддержка →", fontSize = 12.sp)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AutoTicketDialog(settings: AutoTicketSettings, theme: AppTheme, onSave: (AutoTicketSettings) -> Unit, onDismiss: () -> Unit) {
+    var ageHours by remember { mutableIntStateOf(settings.orderAgeHours) }
+    var maxPerTicket by remember { mutableIntStateOf(settings.maxOrdersPerTicket) }
+    var dailyLimit by remember { mutableIntStateOf(settings.dailyLimit) }
+    var intervalHours by remember { mutableIntStateOf(settings.autoIntervalHours) }
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ThemeManager.dialogSurface(theme),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.ConfirmationNumber, null, tint = accent, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Настройки авто-тикета", fontWeight = FontWeight.Bold, color = textPrimary)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth().background(Color(0xFFFF9800).copy(alpha = 0.12f), RoundedCornerShape(8.dp)).padding(10.dp)) {
+                    Icon(Icons.Default.Warning, null, tint = Color(0xFFFF9800), modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("FunPay разрешает 1 тикет на подтверждение заказов в день. Превышение лимита будет залогировано в Консоли.", fontSize = 11.sp, color = textSecondary)
+                }
+                Column {
+                    Text("Заказы старше: $ageHours ч.", fontSize = 13.sp, color = textPrimary)
+                    Slider(value = ageHours.toFloat(), onValueChange = { ageHours = it.toInt() }, valueRange = 1f..168f, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                }
+                Column {
+                    Text("Заказов в одном тикете: $maxPerTicket", fontSize = 13.sp, color = textPrimary)
+                    Slider(value = maxPerTicket.toFloat(), onValueChange = { maxPerTicket = it.toInt() }, valueRange = 1f..120f, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                }
+                Column {
+                    Text("Дневной лимит тикетов: $dailyLimit", fontSize = 13.sp, color = textPrimary)
+                    Slider(value = dailyLimit.toFloat(), onValueChange = { dailyLimit = it.toInt() }, valueRange = 1f..10f, steps = 8, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                    Text("FunPay жёстко ограничивает тикеты - рекомендуем 1", fontSize = 11.sp, color = Color(0xFFFF9800))
+                }
+                Column {
+                    Text("Интервал авто-цикла: $intervalHours ч.", fontSize = 13.sp, color = textPrimary)
+                    Slider(value = intervalHours.toFloat(), onValueChange = { intervalHours = it.toInt() }, valueRange = 1f..48f, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                }
+                if (settings.sentOrderIds.isNotEmpty()) {
+                    Text("Уже отправлено в ТП: ${settings.sentOrderIds.size} заказов (повторно не отправляются)", fontSize = 11.sp, color = textSecondary)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(settings.copy(orderAgeHours = ageHours, maxOrdersPerTicket = maxPerTicket, dailyLimit = dailyLimit, autoIntervalHours = intervalHours)) },
+                colors = ButtonDefaults.buttonColors(containerColor = accent)) { Text("Сохранить", color = Color.White) }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена", color = textSecondary) } }
+    )
+}
+
+@Composable
+fun OrderReminderCard(settings: OrderReminderSettings, theme: AppTheme, onToggle: () -> Unit, onConfigure: () -> Unit) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val surface = ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(surface)) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Timer, null, tint = accent, modifier = Modifier.size(28.dp))
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Напоминание покупателю", fontWeight = FontWeight.Bold, color = textPrimary)
+                    Text("Напомнить подтвердить заказ через ${settings.delayHours} ч.", fontSize = 12.sp, color = textSecondary)
+                }
+                Switch(checked = settings.enabled, onCheckedChange = { onToggle() }, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = accent))
+            }
+            if (settings.enabled) {
+                Spacer(Modifier.height(8.dp))
+                HorizontalDivider(color = textSecondary.copy(alpha = 0.12f))
+                Spacer(Modifier.height(8.dp))
+                Text(settings.message.take(80) + if (settings.message.length > 80) "…" else "",
+                    fontSize = 11.sp, color = textSecondary, modifier = Modifier.fillMaxWidth().background(textSecondary.copy(alpha = 0.06f), RoundedCornerShape(6.dp)).padding(8.dp))
+                Spacer(Modifier.height(8.dp))
+                Button(onClick = onConfigure, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = accent)) {
+                    Text("Настроить", color = Color.White, fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(4.dp))
+                Text("💡 Если покупатель всё равно не подтвердил - используйте Авто-тикет ↓", fontSize = 10.5.sp, color = accent.copy(alpha = 0.7f))
+            }
+        }
+    }
+}
+
+@Composable
+fun RaiseSettingsDialog(repository: FunPayRepository, theme: AppTheme, onDismiss: () -> Unit) {
+    var smartMode by remember { mutableStateOf(repository.isSmartRaiseEnabled()) }
+    var interval by remember { mutableIntStateOf(repository.getRaiseInterval()) }
+
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    val surface = ThemeManager.dialogSurface(theme)
+
+
+
+    var nextAtMs by remember { mutableStateOf(repository.raisePrefs().let { p ->
+        SmartRaise.minNextAt(p)
+    }) }
+    LaunchedEffect(smartMode) {
+        while (true) {
+            nextAtMs = SmartRaise.minNextAt(repository.raisePrefs())
+            delay(1000L)
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth(0.95f).heightIn(max = 640.dp).clip(RoundedCornerShape(theme.borderRadius.dp)).background(surface)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(18.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "Автоподнятие лотов",
+                        color = textPrimary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null, tint = textPrimary) }
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Выбери, как бот решает, когда поднимать лоты.",
+                    color = textSecondary, fontSize = 12.sp, lineHeight = 16.sp
+                )
+
+                Spacer(Modifier.height(14.dp))
+
+
+                ModeCard(
+                    selected = smartMode,
+                    title = "Умный режим (рекомендуется)",
+                    subtitle = "Бот читает ответ FunPay после каждой попытки («Подождите 15 минут.») и ждёт ровно столько, сколько нужно.",
+                    bullet1 = "• Поднимает лоты сразу, как только FunPay разрешает",
+                    bullet2 = "• Интервал-слайдер ниже игнорируется",
+                    bullet3 = "• Не упирается в CF-блок из-за частых попыток",
+                    accent = accent,
+                    textPrimary = textPrimary,
+                    textSecondary = textSecondary,
+                    onClick = {
+                        smartMode = true
+                        repository.setSmartRaiseEnabled(true)
+                    }
+                )
+
+                Spacer(Modifier.height(10.dp))
+
+
+                ModeCard(
+                    selected = !smartMode,
+                    title = "Ручной режим",
+                    subtitle = "Бот просто поднимает каждые N минут, независимо от ответа FunPay.",
+                    bullet1 = "• Простой и предсказуемый",
+                    bullet2 = "• Может слать запросы в пустую, если КД ещё не прошёл",
+                    bullet3 = "• Используй, если умный режим почему-то не подходит",
+                    accent = accent,
+                    textPrimary = textPrimary,
+                    textSecondary = textSecondary,
+                    onClick = {
+                        smartMode = false
+                        repository.setSmartRaiseEnabled(false)
+                    }
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+
+                val sliderAlpha = if (smartMode) 0.35f else 1f
+                Column(modifier = Modifier.alpha(sliderAlpha)) {
+                    Text(
+                        "Интервал ручного режима: $interval мин",
+                        color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium
+                    )
+                    Slider(
+                        value = interval.toFloat(),
+                        onValueChange = { if (!smartMode) interval = it.toInt() },
+                        valueRange = 5f..60f, steps = 10,
+                        enabled = !smartMode,
+                        onValueChangeFinished = { repository.setRaiseInterval(interval) },
+                        colors = SliderDefaults.colors(
+                            thumbColor = accent, activeTrackColor = accent
+                        )
+                    )
+                    if (smartMode) {
+                        Text(
+                            "Отключён: в умном режиме интервал не используется.",
+                            color = textSecondary, fontSize = 10.sp
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(18.dp))
+
+
+                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color.Black.copy(alpha = 0.28f)).border(1.dp, accent.copy(alpha = 0.4f), RoundedCornerShape(10.dp))) {
+                    Column(Modifier.padding(12.dp)) {
+                        Text(
+                            "Следующий разрешённый подъём",
+                            color = accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 0.5.sp
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        val now = System.currentTimeMillis()
+                        val msLeft = nextAtMs?.let { (it - now).coerceAtLeast(0L) } ?: 0L
+                        val statusText = when {
+                            nextAtMs == null -> "Сейчас: можно поднимать (ограничений нет)"
+                            msLeft <= 0 -> "Сейчас: можно поднимать"
+                            else -> {
+                                val min = msLeft / 60_000
+                                val sec = (msLeft / 1000) % 60
+                                "Через: ${min}м ${sec}с"
+                            }
+                        }
+                        Text(statusText, color = textPrimary, fontSize = 13.sp)
+                        Text(
+                            if (smartMode)
+                                "Обновляется после каждого ответа FunPay."
+                            else
+                                "В ручном режиме это информационный показатель; бот всё равно поднимает по своему интервалу.",
+                            color = textSecondary, fontSize = 10.sp, lineHeight = 13.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = accent)
+                ) { Text("Готово", color = Color.White) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ModeCard(
+    selected: Boolean,
+    title: String,
+    subtitle: String,
+    bullet1: String,
+    bullet2: String,
+    bullet3: String,
+    accent: Color,
+    textPrimary: Color,
+    textSecondary: Color,
+    onClick: () -> Unit
+) {
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .clickable(onClick = onClick).clip(RoundedCornerShape(10.dp)).background(if (selected) accent.copy(alpha = 0.12f) else Color.Black.copy(alpha = 0.18f)).border(if (selected) 2.dp else 1.dp, if (selected) accent else Color.White.copy(alpha = 0.12f), RoundedCornerShape(10.dp))) {
+        Row(
+            modifier = Modifier.padding(12.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            RadioButton(
+                selected = selected,
+                onClick = onClick,
+                colors = RadioButtonDefaults.colors(selectedColor = accent)
+            )
+            Spacer(Modifier.width(4.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, color = textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    subtitle,
+                    color = textSecondary, fontSize = 11.sp, lineHeight = 15.sp,
+                    modifier = Modifier.padding(top = 3.dp)
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(bullet1, color = textSecondary, fontSize = 10.sp, lineHeight = 13.sp)
+                Text(bullet2, color = textSecondary, fontSize = 10.sp, lineHeight = 13.sp)
+                Text(bullet3, color = textSecondary, fontSize = 10.sp, lineHeight = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+fun FeedbackBonusDialog(repository: FunPayRepository, theme: AppTheme, onDismiss: () -> Unit) {
+    var settings by remember { mutableStateOf(repository.getFeedbackBonusSettings()) }
+
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    val surface = ThemeManager.dialogSurface(theme)
+
+    fun save(newVal: FeedbackBonusSettings) {
+        settings = newVal
+        repository.saveFeedbackBonusSettings(newVal)
+    }
+
+    var editingRuleId by remember { mutableStateOf<String?>(null) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth(0.96f).fillMaxHeight(0.92f).clip(RoundedCornerShape(theme.borderRadius.dp)).background(surface)) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        "🎁 Бонусы за отзыв",
+                        color = textPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null, tint = textPrimary) }
+                }
+
+                Spacer(Modifier.height(8.dp))
+
+
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            "Отправлять бонусы после ответа на отзыв",
+                            color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            "Срабатывает только после успешного ответа на отзыв; фильтруется по правилам ниже.",
+                            color = textSecondary, fontSize = 10.sp, lineHeight = 13.sp
+                        )
+                    }
+                    Switch(
+                        checked = settings.enabled,
+                        onCheckedChange = { save(settings.copy(enabled = it)) },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = accent,
+                            checkedTrackColor = accent.copy(alpha = 0.5f)
+                        )
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = Color.White.copy(0.12f))
+                Spacer(Modifier.height(8.dp))
+
+
+                OutlinedButton(
+                    onClick = {
+                        val new = FeedbackBonusRule(name = "Правило #${settings.rules.size + 1}")
+                        save(settings.copy(rules = settings.rules + new))
+                        editingRuleId = new.id
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)
+                ) {
+                    Icon(Icons.Default.Add, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Добавить правило", fontSize = 13.sp)
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                if (settings.rules.isEmpty()) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Пока нет ни одного правила.\nНажми «Добавить правило», чтобы создать первое.",
+                            color = textSecondary, fontSize = 12.sp, textAlign = TextAlign.Center,
+                            lineHeight = 16.sp
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        items(settings.rules.distinctBy { it.id }, key = { it.id }) { rule ->
+                            FeedbackBonusRuleCard(
+                                rule = rule,
+                                isEditing = editingRuleId == rule.id,
+                                accent = accent,
+                                textPrimary = textPrimary,
+                                textSecondary = textSecondary,
+                                onToggleEdit = {
+                                    editingRuleId = if (editingRuleId == rule.id) null else rule.id
+                                },
+                                onUpdate = { updated ->
+                                    val list = settings.rules.map { if (it.id == rule.id) updated else it }
+                                    save(settings.copy(rules = list))
+                                },
+                                onCopy = {
+                                    val clone = rule.copy(
+                                        id = UUID.randomUUID().toString(),
+                                        name = rule.name + " (копия)"
+                                    )
+
+                                    val idx = settings.rules.indexOfFirst { it.id == rule.id }
+                                    val list = settings.rules.toMutableList()
+                                    list.add(idx + 1, clone)
+                                    save(settings.copy(rules = list))
+                                    editingRuleId = clone.id
+                                },
+                                onDelete = {
+                                    val list = settings.rules.filter { it.id != rule.id }
+                                    save(settings.copy(rules = list))
+                                    if (editingRuleId == rule.id) editingRuleId = null
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun FeedbackBonusRuleCard(
+    rule: FeedbackBonusRule,
+    isEditing: Boolean,
+    accent: Color,
+    textPrimary: Color,
+    textSecondary: Color,
+    onToggleEdit: () -> Unit,
+    onUpdate: (FeedbackBonusRule) -> Unit,
+    onCopy: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var imageUri by remember(rule.id) {
+        mutableStateOf<Uri?>(rule.imageUri?.let { Uri.parse(it) })
+    }
+    val bonusCtx = LocalContext.current
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            // Копия в память приложения: ссылка галереи после перезапуска уже не открывается
+            val local = FunPayRepository(bonusCtx).copyPickedImageToStorage(uri)?.let { Uri.parse(it) } ?: uri
+            imageUri = local
+            onUpdate(rule.copy(imageUri = local.toString()))
+        }
+    }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(if (rule.enabled) Color.Black.copy(alpha = 0.22f) else Color.Black.copy(alpha = 0.08f)).border(1.dp, if (isEditing) accent else Color.White.copy(alpha = 0.1f), RoundedCornerShape(10.dp))) {
+        Column(modifier = Modifier.padding(12.dp)) {
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    if (isEditing) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    null,
+                    tint = textSecondary,
+                    modifier = Modifier
+                        .size(20.dp)
+                        .clickable { onToggleEdit() }
+                )
+                Spacer(Modifier.width(6.dp))
+                Column(modifier = Modifier.weight(1f).clickable { onToggleEdit() }) {
+                    Text(
+                        rule.name.ifBlank { "(без имени)" },
+                        color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        buildString {
+                            append("≥ ${rule.minStars}★")
+                            val filters = mutableListOf<String>()
+                            if (rule.matchLotIds.isNotEmpty()) filters.add("ID: ${rule.matchLotIds.size}")
+                            if (rule.matchLotNameContains.isNotEmpty()) filters.add("по имени: ${rule.matchLotNameContains.size}")
+                            if (rule.matchDescriptionCode.isNotEmpty()) filters.add("по коду: ${rule.matchDescriptionCode.size}")
+                            if (filters.isEmpty()) append(" · для всех лотов")
+                            else {
+                                append(" · фильтры — ")
+                                append(filters.joinToString(", "))
+                            }
+                        },
+                        color = textSecondary, fontSize = 10.sp, lineHeight = 13.sp
+                    )
+                }
+                Switch(
+                    checked = rule.enabled,
+                    onCheckedChange = { onUpdate(rule.copy(enabled = it)) },
+                    modifier = Modifier.scale(0.75f),
+                    enabled = true,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = accent,
+                        checkedTrackColor = accent.copy(alpha = 0.5f)
+                    )
+                )
+            }
+
+            if (isEditing) {
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(modifier = Modifier, thickness = 1.dp, color = Color.White.copy(0.08f))
+                Spacer(Modifier.height(10.dp))
+
+
+                OutlinedTextField(
+                    value = rule.name,
+                    onValueChange = { onUpdate(rule.copy(name = it)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = true,
+                    readOnly = false,
+                    label = { Text("Название правила") },
+                    isError = false,
+                    singleLine = true,
+                    maxLines = 1,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = textPrimary, unfocusedTextColor = textPrimary,
+                        focusedBorderColor = accent, cursorColor = accent
+                    )
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+
+                Text("Отправлять при оценке ≥ ${rule.minStars}★", color = textPrimary, fontSize = 12.sp)
+                Slider(
+                    value = rule.minStars.toFloat(),
+                    onValueChange = { onUpdate(rule.copy(minStars = it.toInt().coerceIn(1, 5))) },
+                    modifier = Modifier,
+                    enabled = true,
+                    valueRange = 1f..5f,
+                    steps = 3,
+                    onValueChangeFinished = null,
+                    colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
+                )
+
+
+                Text("Текст бонуса:", color = textPrimary, fontSize = 12.sp)
+                OutlinedTextField(
+                    value = rule.text,
+                    onValueChange = { onUpdate(rule.copy(text = it)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = true,
+                    readOnly = false,
+                    isError = false,
+                    singleLine = false,
+                    minLines = 2, maxLines = 5,
+                    placeholder = {
+                        Text(
+                            "Спасибо, \$username! Промокод XYZ для следующей покупки 🎁",
+                            color = textSecondary
+                        )
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = textPrimary, unfocusedTextColor = textPrimary,
+                        focusedBorderColor = accent, cursorColor = accent
+                    )
+                )
+
+
+                var showVarsHelp by remember { mutableStateOf(false) }
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.clickable { showVarsHelp = !showVarsHelp }.padding(vertical = 4.dp)
+                ) {
+                    Icon(
+                        if (showVarsHelp) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        null, tint = accent, modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text("Переменные", color = accent, fontSize = 11.sp)
+                }
+                if (showVarsHelp) {
+                    Text(
+                        FpPlaceholders.AVAILABLE_HELP_TEXT,
+                        color = textSecondary, fontSize = 10.sp, lineHeight = 14.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                    )
+                }
+
+                Spacer(Modifier.height(6.dp))
+
+
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                    OutlinedButton(
+                        onClick = {
+                            imagePicker.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = true
+                    ) {
+                        Icon(Icons.Default.Image, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            if (imageUri == null) "+ Картинка" else "Картинка выбрана",
+                            fontSize = 12.sp
+                        )
+                    }
+                    if (imageUri != null) {
+                        Spacer(Modifier.width(6.dp))
+                        IconButton(onClick = {
+                            imageUri = null
+                            onUpdate(rule.copy(imageUri = null))
+                        }) { Icon(Icons.Default.Close, null, tint = textSecondary) }
+                    }
+                }
+                if (imageUri != null) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
+                        Text("Картинка первой", color = textSecondary, fontSize = 11.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = rule.imageFirst,
+                            onCheckedChange = { onUpdate(rule.copy(imageFirst = it)) },
+                            modifier = Modifier.scale(0.7f),
+                            enabled = true,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = accent,
+                                checkedTrackColor = accent.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+                }
+
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = rule.oncePerOrder,
+                        onCheckedChange = { onUpdate(rule.copy(oncePerOrder = it)) },
+                        modifier = Modifier,
+                        enabled = true,
+                        colors = CheckboxDefaults.colors(checkedColor = accent)
+                    )
+                    Text("Только один раз на заказ", color = textPrimary, fontSize = 12.sp)
+                }
+
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider(modifier = Modifier, thickness = 1.dp, color = Color.White.copy(0.08f))
+                Spacer(Modifier.height(10.dp))
+
+
+                Text(
+                    "Фильтры по лоту (необязательно)",
+                    color = accent, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 0.5.sp
+                )
+                Text(
+                    "Если задать хоть один фильтр — правило сработает, только если отзыв пришёл на лот, совпавший ХОТЯ БЫ с одним из фильтров.",
+                    color = textSecondary, fontSize = 10.sp, lineHeight = 13.sp
+                )
+                Spacer(Modifier.height(6.dp))
+
+                CommaListField(
+                    label = "ID лотов (через запятую)",
+                    placeholder = "22238017, 22238018, 3934718-168-110-2842-0",
+                    value = rule.matchLotIds,
+                    onChange = { onUpdate(rule.copy(matchLotIds = it)) },
+                    accent = accent, textPrimary = textPrimary, textSecondary = textSecondary
+                )
+                Spacer(Modifier.height(6.dp))
+                CommaListField(
+                    label = "Подстроки в названии лота",
+                    placeholder = "VK Coin, ккк, промо",
+                    value = rule.matchLotNameContains,
+                    onChange = { onUpdate(rule.copy(matchLotNameContains = it)) },
+                    accent = accent, textPrimary = textPrimary, textSecondary = textSecondary
+                )
+                Spacer(Modifier.height(6.dp))
+                CommaListField(
+                    label = "Спец-коды в описании лота",
+                    placeholder = "[BONUS], #promo2026",
+                    value = rule.matchDescriptionCode,
+                    onChange = { onUpdate(rule.copy(matchDescriptionCode = it)) },
+                    accent = accent, textPrimary = textPrimary, textSecondary = textSecondary
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    OutlinedButton(
+                        onClick = onCopy,
+                        modifier = Modifier.weight(1f),
+                        enabled = true,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = accent)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Копировать", fontSize = 11.sp)
+                    }
+                    OutlinedButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.weight(1f),
+                        enabled = true,
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFE57373))
+                    ) {
+                        Icon(Icons.Default.Delete, null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Удалить", fontSize = 11.sp)
+                    }
+                }
+            }
+        }
+    }
+
+    if (showDeleteConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text("Удалить правило?") },
+            text = { Text("Правило «${rule.name}» будет удалено. Это действие нельзя отменить.") },
+            confirmButton = {
+                TextButton(onClick = { showDeleteConfirm = false; onDelete() }) {
+                    Text("Удалить", color = Color(0xFFE57373))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) { Text("Отмена") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun CommaListField(
+    label: String,
+    placeholder: String,
+    value: List<String>,
+    onChange: (List<String>) -> Unit,
+    accent: Color,
+    textPrimary: Color,
+    textSecondary: Color
+) {
+    var raw by remember(value) { mutableStateOf(value.joinToString(", ")) }
+    OutlinedTextField(
+        value = raw,
+        onValueChange = {
+            raw = it
+            val parsed = it.split(",").map { s -> s.trim() }.filter { s -> s.isNotBlank() }
+            onChange(parsed)
+        },
+        modifier = Modifier.fillMaxWidth(),
+        enabled = true,
+        readOnly = false,
+        label = { Text(label, fontSize = 11.sp) },
+        placeholder = { Text(placeholder, color = textSecondary, fontSize = 11.sp) },
+        isError = false,
+        singleLine = false,
+        maxLines = 3,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = textPrimary, unfocusedTextColor = textPrimary,
+            focusedBorderColor = accent, cursorColor = accent
+        )
+    )
+}
+
+@Composable
+fun OrderReminderDialog(settings: OrderReminderSettings, theme: AppTheme, onSave: (OrderReminderSettings) -> Unit, onDismiss: () -> Unit) {
+    var delayHours by remember { mutableIntStateOf(settings.delayHours) }
+    var message by remember { mutableStateOf(settings.message) }
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    AlertDialog(onDismissRequest = onDismiss, containerColor = ThemeManager.dialogSurface(theme),
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Timer, null, tint = accent, modifier = Modifier.size(22.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Напоминание покупателю", fontWeight = FontWeight.Bold, color = textPrimary)
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column {
+                    Text("Отправить через: $delayHours ч.", fontSize = 13.sp, color = textPrimary)
+                    Slider(value = delayHours.toFloat(), onValueChange = { delayHours = it.toInt() }, valueRange = 1f..48f, colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                    Text("Напоминание уйдёт если покупатель не подтвердит заказ через $delayHours ч.", fontSize = 11.sp, color = textSecondary)
+                }
+                Column {
+                    Text("Текст напоминания:", fontSize = 13.sp, color = textPrimary)
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedTextField(value = message, onValueChange = { message = it }, modifier = Modifier.fillMaxWidth(), minLines = 3, maxLines = 5,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, focusedTextColor = textPrimary, unfocusedTextColor = textPrimary, cursorColor = accent),
+                        placeholder = { Text("Текст напоминания...", color = textSecondary) })
+                    Spacer(Modifier.height(4.dp))
+                    Text("Переменные: \$username, \$order_id, \$order_link, \$lot_name, \$date, \$time, \$chat_name", fontSize = 10.sp, color = textSecondary, lineHeight = 13.sp)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onSave(settings.copy(delayHours = delayHours, message = message)) }, colors = ButtonDefaults.buttonColors(containerColor = accent)) {
+                Text("Сохранить", color = Color.White)
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена", color = textSecondary) } }
+    )
+}
+
+
+@Composable
+fun PremiumSettingCard(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    icon: ImageVector,
+    theme: AppTheme,
+    feature: PremiumFeature,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 4.dp).clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor))) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = ThemeManager.parseColor(theme.accentColor),
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ThemeManager.parseColor(theme.textPrimaryColor)
+                )
+                if (subtitle.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        fontSize = 12.sp,
+                        color = ThemeManager.parseColor(theme.textSecondaryColor),
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+
+            PremiumSwitch(
+                feature = feature,
+                checked = checked,
+                theme = theme,
+                onCheckedChange = onCheckedChange
+            )
+        }
+    }
+}
+
+@Composable
+fun ImagePickerRow(
+    imageUri: Uri?,
+    theme: AppTheme,
+    onPick: () -> Unit,
+    onClear: () -> Unit
+) {
+    if (imageUri == null) {
+        OutlinedButton(
+            onClick = onPick,
+            modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(
+                1.dp, ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.5f)
+            )
+        ) {
+            Icon(Icons.Default.Image, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Прикрепить картинку", color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 13.sp)
+        }
+    } else {
+        Row(
+            modifier = Modifier.fillMaxWidth()
+                .background(ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Default.Image, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Картинка выбрана", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 13.sp, modifier = Modifier.weight(1f))
+            IconButton(onClick = onClear, modifier = Modifier.size(28.dp)) {
+                Icon(Icons.Default.Close, null, tint = ThemeManager.parseColor(theme.textSecondaryColor), modifier = Modifier.size(16.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun ImageOrderPicker(
+    imageFirst: Boolean,
+    theme: AppTheme,
+    onSelect: (Boolean) -> Unit
+) {
+    Text("Порядок отправки:", fontSize = 11.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+    Spacer(Modifier.height(4.dp))
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .background(Color.Black.copy(alpha = 0.15f), RoundedCornerShape(8.dp))
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+
+        Surface(
+            modifier = Modifier.weight(1f).clickable { onSelect(true) },
+            color = if (imageFirst) ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.3f) else Color.Transparent,
+            shape = RoundedCornerShape(6.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Icon(Icons.Default.Image, null, modifier = Modifier.size(18.dp), tint = ThemeManager.parseColor(theme.accentColor))
+                Icon(Icons.Default.TextFields, null, modifier = Modifier.size(18.dp), tint = ThemeManager.parseColor(theme.textPrimaryColor))
+            }
+        }
+
+        Surface(
+            modifier = Modifier.weight(1f).clickable { onSelect(false) },
+            color = if (!imageFirst) ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.3f) else Color.Transparent,
+            shape = RoundedCornerShape(6.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Icon(Icons.Default.TextFields, null, modifier = Modifier.size(18.dp), tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                Icon(Icons.Default.Image, null, modifier = Modifier.size(18.dp), tint = ThemeManager.parseColor(theme.accentColor))
+            }
+        }
+    }
+}
+
+@Composable
+fun AutoRefundDialog(repository: FunPayRepository, theme: AppTheme, onDismiss: () -> Unit) {
+    var settings by remember { mutableStateOf(repository.getAutoRefundSettings()) }
+    var imageUri by remember { mutableStateOf(settings.imageUri?.let { Uri.parse(it) }) }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val localUri = uri?.let { repository.copyPickedImageToStorage(it)?.let { p -> Uri.parse(p) } ?: it }
+        imageUri = localUri; settings = settings.copy(imageUri = localUri?.toString())
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(modifier = Modifier.heightIn(max = 600.dp).clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.dialogSurface(theme))) {
+            Column(modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                Text("Настройка Авто-возврата", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text("Максимальная сумма заказа:", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                OutlinedTextField(
+                    value = settings.maxPrice.toString(),
+                    onValueChange = {
+                        if (it.all { char -> char.isDigit() || char == '.' }) {
+                            settings = settings.copy(maxPrice = it.toDoubleOrNull() ?: 0.0)
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                        unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                        focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                        cursorColor = ThemeManager.parseColor(theme.accentColor)
+                    )
+                )
+                Text("Если цена выше этой суммы, возврат не сработает.", fontSize = 11.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text("Триггеры (оценка отзыва):", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    (1..5).forEach { star ->
+                        val isSelected = settings.triggerStars.contains(star)
+                        FilterChip(
+                            selected = isSelected,
+                            onClick = {
+                                val newList = settings.triggerStars.toMutableList()
+                                if (isSelected) newList.remove(star) else newList.add(star)
+                                settings = settings.copy(triggerStars = newList)
+                            },
+                            label = { Text("$star★") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = ThemeManager.parseColor(theme.accentColor),
+                                selectedLabelColor = Color.White
+                            )
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = settings.sendMessage,
+                        onCheckedChange = { settings = settings.copy(sendMessage = it) },
+                        colors = CheckboxDefaults.colors(checkedColor = ThemeManager.parseColor(theme.accentColor))
+                    )
+                    Text("Отправлять сообщение", color = ThemeManager.parseColor(theme.textPrimaryColor))
+                }
+
+                if (settings.sendMessage) {
+                    OutlinedTextField(
+                        value = settings.messageText,
+                        onValueChange = { settings = settings.copy(messageText = it) },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Текст сообщения") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                            unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                            focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                            cursorColor = ThemeManager.parseColor(theme.accentColor)
+                        )
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    ImagePickerRow(
+                        imageUri = imageUri,
+                        theme = theme,
+                        onPick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        onClear = { imageUri = null; settings = settings.copy(imageUri = null) }
+                    )
+                    if (imageUri != null && settings.messageText.isNotBlank()) {
+                        Spacer(Modifier.height(8.dp))
+                        ImageOrderPicker(settings.imageFirst, theme) { settings = settings.copy(imageFirst = it) }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                Button(
+                    onClick = { repository.saveAutoRefundSettings(settings); onDismiss() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                ) { Text("Сохранить") }
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingCard(title: String, desc: String, enabled: Boolean, icon: ImageVector, theme: AppTheme, onToggle: () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = if (enabled) ThemeManager.parseColor(theme.accentColor) else ThemeManager.parseColor(theme.textSecondaryColor), modifier = Modifier.size(32.dp))
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title, fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                Text(desc, fontSize = 12.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+            }
+            Switch(checked = enabled, onCheckedChange = { onToggle() }, colors = SwitchDefaults.colors(
+                checkedThumbColor = ThemeManager.parseColor(theme.accentColor),
+                checkedTrackColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.5f)
+            ))
+        }
+    }
+}
+
+@Composable
+fun CommandsDialog(repository: FunPayRepository, theme: AppTheme, onDismiss: () -> Unit) {
+    var commands by remember { mutableStateOf(repository.getCommands()) }
+    var newTrigger by remember { mutableStateOf("") }
+    var newResponse by remember { mutableStateOf("") }
+    var exactMatch by remember { mutableStateOf(false) }
+    var caseSensitive by remember { mutableStateOf(false) }
+    var callMode by remember { mutableStateOf(false) }
+    var callStyle by remember { mutableStateOf("notification") }
+    var callAutoReplyText by remember { mutableStateOf("Зову хозяина, он ответит в течение часа.") }
+    var newImageUri by remember { mutableStateOf<Uri?>(null) }
+    var newImageFirst by remember { mutableStateOf(true) }
+    var editingCmd by remember { mutableStateOf<AutoResponseCommand?>(null) }
+    var formExpanded by remember { mutableStateOf(false) }
+    var showVarsHelp by remember { mutableStateOf(false) }
+
+    LaunchedEffect(editingCmd) { if (editingCmd != null) formExpanded = true }
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        // Ссылка из галереи временная: после перезапуска FunPay Tools её уже не открыть, и команда
+        // уходила без картинки. Копируем файл к себе, как в приветствии и автовозврате.
+        newImageUri = uri?.let { repository.copyPickedImageToStorage(it)?.let { p -> Uri.parse(p) } ?: it }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.9f).clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.dialogSurface(theme))) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        if (editingCmd != null) "Редактирование команды" else "Команды автоответа",
+                        fontWeight = FontWeight.Bold,
+                        color = ThemeManager.parseColor(theme.textPrimaryColor),
+                        fontSize = 18.sp
+                    )
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, null, tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (formExpanded) ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.15f)
+                                    else Color.Black.copy(alpha = 0.2f)
+                                )
+                                .clickable {
+                                    if (formExpanded && editingCmd != null) {
+                                        editingCmd = null
+                                        newTrigger = ""; newResponse = ""
+                                        exactMatch = false; caseSensitive = false; callMode = false
+                                        newImageUri = null; newImageFirst = true
+                                    }
+                                    formExpanded = !formExpanded
+                                }
+                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                if (formExpanded) Icons.Default.ExpandLess else Icons.Default.Add,
+                                null,
+                                tint = ThemeManager.parseColor(theme.accentColor),
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                if (editingCmd != null) "Редактирование команды (нажмите чтобы свернуть)"
+                                else if (formExpanded) "Скрыть форму создания"
+                                else "Создать новую команду",
+                                color = ThemeManager.parseColor(theme.textPrimaryColor),
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    if (formExpanded) {
+                        item {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                Spacer(Modifier.height(8.dp))
+                                OutlinedTextField(
+                                    value = newTrigger,
+                                    onValueChange = { newTrigger = it },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    label = { Text("Триггер (слово/фраза)") },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                        unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                        focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                                        cursorColor = ThemeManager.parseColor(theme.accentColor)
+                                    ),
+                                    singleLine = true
+                                )
+                                Spacer(Modifier.height(6.dp))
+                                OutlinedTextField(
+                                    value = newResponse,
+                                    onValueChange = { newResponse = it },
+                                    modifier = Modifier.fillMaxWidth().height(90.dp),
+                                    label = { Text("Ответ (необязательно, если есть картинка)") },
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                        unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                        focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                                        cursorColor = ThemeManager.parseColor(theme.accentColor)
+                                    ),
+                                    maxLines = 4
+                                )
+                                Spacer(Modifier.height(6.dp))
+
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { showVarsHelp = !showVarsHelp }
+                                        .padding(vertical = 4.dp)
+                                ) {
+                                    Icon(
+                                        if (showVarsHelp) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                                        null,
+                                        tint = ThemeManager.parseColor(theme.accentColor),
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        "Доступные переменные",
+                                        color = ThemeManager.parseColor(theme.accentColor),
+                                        fontSize = 11.sp, fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                if (showVarsHelp) {
+                                    Box(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.25f))) {
+                                        Text(
+                                            FpPlaceholders.AVAILABLE_HELP_TEXT,
+                                            color = ThemeManager.parseColor(theme.textSecondaryColor),
+                                            fontSize = 10.sp, lineHeight = 14.sp,
+                                            modifier = Modifier.padding(10.dp)
+                                        )
+                                    }
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).background(Color.Transparent).border(1.dp, ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.35f), RoundedCornerShape(10.dp))) {
+                                    Column(modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp)) {
+                                        Text(
+                                            if (editingCmd != null) "Параметры этой команды" else "Параметры новой команды",
+                                            color = ThemeManager.parseColor(theme.accentColor),
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            letterSpacing = 0.5.sp
+                                        )
+                                        Text(
+                                            "Действуют только для той команды, которую сейчас создаёшь или редактируешь.",
+                                            color = ThemeManager.parseColor(theme.textSecondaryColor),
+                                            fontSize = 10.sp, lineHeight = 13.sp
+                                        )
+                                        Spacer(Modifier.height(6.dp))
+
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Checkbox(
+                                                checked = exactMatch,
+                                                onCheckedChange = { exactMatch = it },
+                                                colors = CheckboxDefaults.colors(checkedColor = ThemeManager.parseColor(theme.accentColor))
+                                            )
+                                            Text("Точное совпадение", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 13.sp)
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Checkbox(
+                                                checked = caseSensitive,
+                                                onCheckedChange = { caseSensitive = it },
+                                                colors = CheckboxDefaults.colors(checkedColor = ThemeManager.parseColor(theme.accentColor))
+                                            )
+                                            Column {
+                                                Text("Учитывать регистр букв", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 13.sp)
+                                                Text(
+                                                    if (caseSensitive) "'Привет' ≠ 'привет'" else "'Привет' = 'ПРИВЕТ' = 'привет'",
+                                                    color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 10.sp
+                                                )
+                                            }
+                                        }
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Checkbox(
+                                                checked = callMode,
+                                                onCheckedChange = { callMode = it },
+                                                colors = CheckboxDefaults.colors(checkedColor = ThemeManager.parseColor(theme.accentColor))
+                                            )
+                                            Column {
+                                                Text("Режим вызова (звонок продавца)", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 13.sp)
+                                                Text(
+                                                    "Срочное уведомление продавцу с кнопкой 'Ответить'. Удобно для !продавец, !позвать.",
+                                                    color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 10.sp, lineHeight = 13.sp
+                                                )
+                                            }
+                                        }
+                                        if (callMode) {
+                                            Spacer(Modifier.height(6.dp))
+                                            Text("Как показывать вызов:", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                            Spacer(Modifier.height(4.dp))
+                                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                                FilterChip(
+                                                    selected = callStyle == "notification",
+                                                    onClick = { callStyle = "notification" },
+                                                    label = { Text("Уведомление", fontSize = 11.sp) },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = ThemeManager.parseColor(theme.accentColor),
+                                                        selectedLabelColor = Color.White
+                                                    )
+                                                )
+                                                FilterChip(
+                                                    selected = callStyle == "fullscreen",
+                                                    onClick = { callStyle = "fullscreen" },
+                                                    label = { Text("Имитация звонка", fontSize = 11.sp) },
+                                                    colors = FilterChipDefaults.filterChipColors(
+                                                        selectedContainerColor = ThemeManager.parseColor(theme.accentColor),
+                                                        selectedLabelColor = Color.White
+                                                    )
+                                                )
+                                            }
+                                            Text(
+                                                if (callStyle == "fullscreen")
+                                                    "На весь экран появится экран входящего вызова в стиле iOS — с аватаркой, ником и кнопками 'Ответить/Сбросить'. Работает даже поверх блокировки."
+                                                else
+                                                    "Обычное пуш-уведомление с рингтоном и кнопками 'Ответить/Отклонить'.",
+                                                color = ThemeManager.parseColor(theme.textSecondaryColor),
+                                                fontSize = 10.sp, lineHeight = 13.sp
+                                            )
+                                            Spacer(Modifier.height(6.dp))
+                                            OutlinedTextField(
+                                                value = callAutoReplyText,
+                                                onValueChange = { callAutoReplyText = it },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                label = { Text("Автоответ покупателю во время вызова", fontSize = 11.sp) },
+                                                placeholder = { Text("Зову хозяина, он ответит в течение часа.", color = ThemeManager.parseColor(theme.textSecondaryColor)) },
+                                                maxLines = 3,
+                                                colors = OutlinedTextFieldDefaults.colors(
+                                                    focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                                    unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                                    focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                                                    cursorColor = ThemeManager.parseColor(theme.accentColor)
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                ImagePickerRow(
+                                    imageUri = newImageUri,
+                                    theme = theme,
+                                    onPick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                                    onClear = { newImageUri = null }
+                                )
+                                if (newImageUri != null && newResponse.isNotBlank()) {
+                                    Spacer(Modifier.height(6.dp))
+                                    ImageOrderPicker(newImageFirst, theme) { newImageFirst = it }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    if (editingCmd != null) {
+                                        OutlinedButton(
+                                            onClick = {
+                                                editingCmd = null
+                                                newTrigger = ""; newResponse = ""; exactMatch = false
+                                                caseSensitive = false; callMode = false
+                                                callStyle = "notification"
+                                                callAutoReplyText = "Зову хозяина, он ответит в течение часа."
+                                                newImageUri = null; newImageFirst = true
+                                            },
+                                            modifier = Modifier.weight(1f)
+                                        ) { Text("Отмена", color = ThemeManager.parseColor(theme.textSecondaryColor)) }
+                                    }
+                                    Button(
+                                        onClick = {
+                                            val hasContent = newTrigger.isNotBlank() && (newResponse.isNotBlank() || newImageUri != null || callMode)
+                                            if (hasContent) {
+                                                val cmd = AutoResponseCommand(
+                                                    trigger = newTrigger.trim(),
+                                                    response = newResponse.trim(),
+                                                    exactMatch = exactMatch,
+                                                    imageUri = newImageUri?.toString(),
+                                                    imageFirst = newImageFirst,
+                                                    caseSensitive = caseSensitive,
+                                                    callMode = callMode,
+                                                    callStyle = callStyle,
+                                                    callAutoReplyTextRaw = callAutoReplyText.trim().ifEmpty { null }
+                                                )
+                                                commands = if (editingCmd != null) {
+                                                    commands.map { if (it == editingCmd) cmd else it }
+                                                } else {
+                                                    commands + cmd
+                                                }
+                                                repository.saveCommands(commands)
+                                                editingCmd = null
+                                                newTrigger = ""; newResponse = ""; exactMatch = false
+                                                caseSensitive = false; callMode = false
+                                                callStyle = "notification"
+                                                callAutoReplyText = "Зову хозяина, он ответит в течение часа."
+                                                newImageUri = null; newImageFirst = true
+                                            }
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                                    ) { Text(if (editingCmd != null) "Сохранить" else "Добавить") }
+                                }
+
+                                Spacer(Modifier.height(12.dp))
+                            }
+                        }
+                    }
+
+                    item {
+                        Spacer(Modifier.height(12.dp))
+                        HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                        Spacer(Modifier.height(8.dp))
+                    }
+
+                    if (commands.isEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 32.dp), contentAlignment = Alignment.Center) {
+                                Text("Нет команд", color = ThemeManager.parseColor(theme.textSecondaryColor))
+                            }
+                        }
+                    } else {
+                        items(commands) { cmd ->
+                            Box(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(10.dp)).background(if (editingCmd == cmd)
+                                ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.15f)
+                            else ThemeManager.dialogSurface(theme).copy(alpha = 0.5f))) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth().padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Text(
+                                                "'${cmd.trigger}'",
+                                                color = ThemeManager.parseColor(theme.textPrimaryColor),
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp
+                                            )
+                                            if (cmd.exactMatch) {
+                                                Spacer(Modifier.width(4.dp))
+                                                Text("=", color = ThemeManager.parseColor(theme.accentColor), fontSize = 10.sp)
+                                            }
+                                            if (cmd.caseSensitive) {
+                                                Spacer(Modifier.width(4.dp))
+                                                Text("Aa", color = ThemeManager.parseColor(theme.accentColor), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                            if (cmd.callMode) {
+                                                Spacer(Modifier.width(4.dp))
+                                                Icon(Icons.Default.Call, null, modifier = Modifier.size(12.dp), tint = Color(0xFF4CAF50))
+                                            }
+                                            if (cmd.imageUri != null) {
+                                                Spacer(Modifier.width(4.dp))
+                                                Icon(Icons.Default.Image, null, modifier = Modifier.size(12.dp), tint = ThemeManager.parseColor(theme.accentColor))
+                                            }
+                                        }
+                                        if (cmd.response.isNotBlank()) {
+                                            Text(
+                                                cmd.response,
+                                                color = ThemeManager.parseColor(theme.textSecondaryColor),
+                                                fontSize = 11.sp,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    IconButton(onClick = {
+                                        editingCmd = cmd
+                                        newTrigger = cmd.trigger
+                                        newResponse = cmd.response
+                                        exactMatch = cmd.exactMatch
+                                        caseSensitive = cmd.caseSensitive
+                                        callMode = cmd.callMode
+                                        callStyle = cmd.callStyle.ifBlank { "notification" }
+                                        callAutoReplyText = cmd.callAutoReplyTextOrDefault
+                                        newImageUri = cmd.imageUri?.let { Uri.parse(it) }
+                                        newImageFirst = cmd.imageFirst
+                                    }, modifier = Modifier.size(32.dp)) {
+                                        Icon(Icons.Default.Edit, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(16.dp))
+                                    }
+                                    IconButton(onClick = {
+                                        if (editingCmd == cmd) {
+                                            editingCmd = null
+                                            newTrigger = ""; newResponse = ""; exactMatch = false
+                                            caseSensitive = false; callMode = false
+                                            callStyle = "notification"
+                                            callAutoReplyText = "Зову хозяина, он ответит в течение часа."
+                                            newImageUri = null; newImageFirst = true
+                                        }
+                                        commands = commands.filter { it != cmd }
+                                        repository.saveCommands(commands)
+                                    }, modifier = Modifier.size(32.dp)) {
+                                        Icon(Icons.Default.Delete, null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.dialogSurface(theme))
+                ) { Text("Закрыть", color = ThemeManager.parseColor(theme.textPrimaryColor)) }
+            }
+        }
+    }
+}
+
+@Composable
+fun GreetingDialog(repository: FunPayRepository, settings: GreetingSettings, theme: AppTheme, onSave: (GreetingSettings) -> Unit) {
+    var text by remember { mutableStateOf(settings.text) }
+    var cooldown by remember { mutableIntStateOf(settings.cooldownHours) }
+    var ignoreSystem by remember { mutableStateOf(settings.ignoreSystemMessages) }
+    var imageUri by remember { mutableStateOf(settings.imageUri?.let { Uri.parse(it) }) }
+    var imageFirst by remember { mutableStateOf(settings.imageFirst) }
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        imageUri = uri?.let { repository.copyPickedImageToStorage(it)?.let { p -> Uri.parse(p) } ?: it }
+    }
+
+    Dialog(onDismissRequest = {}) {
+        Box(modifier = Modifier.clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.dialogSurface(theme))) {
+            Column(modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                Text("Настройка приветствия", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Текст (необязательно, если есть картинка)") },
+                    maxLines = 3,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                        unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                        focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                        cursorColor = ThemeManager.parseColor(theme.accentColor)
+                    )
+                )
+                Text(
+                    "Переменные: \$username, \$chat_name, \$chat_id, \$date, \$time, \$full_date, \$message_text",
+                    fontSize = 10.sp, lineHeight = 13.sp,
+                    color = ThemeManager.parseColor(theme.textSecondaryColor)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                ImagePickerRow(
+                    imageUri = imageUri,
+                    theme = theme,
+                    onPick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    onClear = { imageUri = null }
+                )
+                if (imageUri != null && text.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    ImageOrderPicker(imageFirst, theme) { imageFirst = it }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Кулдаун: $cooldown ч", color = ThemeManager.parseColor(theme.textPrimaryColor))
+                Slider(
+                    value = cooldown.toFloat(),
+                    onValueChange = { cooldown = it.toInt() },
+                    valueRange = 1f..168f,
+                    steps = 23,
+                    colors = SliderDefaults.colors(
+                        thumbColor = ThemeManager.parseColor(theme.accentColor),
+                        activeTrackColor = ThemeManager.parseColor(theme.accentColor)
+                    )
+                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = ignoreSystem,
+                        onCheckedChange = { ignoreSystem = it },
+                        colors = CheckboxDefaults.colors(checkedColor = ThemeManager.parseColor(theme.accentColor))
+                    )
+                    Text("Игнорировать системные сообщения", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 12.sp)
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Button(
+                        onClick = { onSave(GreetingSettings(false, text, cooldown, ignoreSystem, imageUri?.toString(), imageFirst)) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.dialogSurface(theme))
+                    ) { Text("Закрыть", color = ThemeManager.parseColor(theme.textPrimaryColor)) }
+                    Button(
+                        onClick = { onSave(GreetingSettings(true, text, cooldown, ignoreSystem, imageUri?.toString(), imageFirst)) },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                    ) { Text("Сохранить") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ReviewSettingsDialog(
+    repository: FunPayRepository,
+    theme: AppTheme,
+    onNeedsPro: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var settings by remember { mutableStateOf(repository.getReviewReplySettings()) }
+    var selectedTab by remember { mutableIntStateOf(if (settings.useAi && LicenseManager.hasAccess(PremiumFeature.REVIEW_AI)) 0 else 1) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(modifier = Modifier.heightIn(max = 700.dp).clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.dialogSurface(theme))) {
+            Column(modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                Text("Настройка ответов на отзывы", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(modifier = Modifier.fillMaxWidth().background(Color.Black.copy(0.2f), RoundedCornerShape(8.dp)).padding(4.dp)) {
+                    Button(
+                        onClick = {
+                            if (!LicenseManager.hasAccess(PremiumFeature.REVIEW_AI)) {
+                                onNeedsPro()
+                            } else {
+                                selectedTab = 0
+                                settings = settings.copy(useAi = true)
+                                repository.saveReviewReplySettings(settings)
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedTab == 0) ThemeManager.parseColor(theme.accentColor) else Color.Transparent
+                        ),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AutoAwesome, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("AI")
+                            if (!LicenseManager.hasAccess(PremiumFeature.REVIEW_AI)) {
+                                Spacer(Modifier.width(4.dp))
+                                LockBadge(feature = PremiumFeature.REVIEW_AI, theme = theme)
+                            }
+                        }
+                    }
+
+                    Button(
+                        onClick = {
+                            selectedTab = 1
+                            settings = settings.copy(useAi = false)
+                            repository.saveReviewReplySettings(settings)
+                        },
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = if (selectedTab == 1) ThemeManager.parseColor(theme.accentColor) else Color.Transparent
+                        ),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.List, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Шаблоны")
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                if (selectedTab == 0) {
+                    Text("Сила ответа: ${settings.aiLength}", color = ThemeManager.parseColor(theme.textPrimaryColor))
+                    Text(
+                        text = when {
+                            settings.aiLength <= 2 -> "Очень кратко и по делу"
+                            settings.aiLength == 5 -> "Стандартный, дружелюбный ответ"
+                            settings.aiLength >= 9 -> "Максимально развернутый и креативный"
+                            else -> "Средняя длина"
+                        },
+                        fontSize = 12.sp,
+                        color = ThemeManager.parseColor(theme.textSecondaryColor)
+                    )
+                    Slider(
+                        value = settings.aiLength.toFloat(),
+                        onValueChange = { settings = settings.copy(aiLength = it.toInt()) },
+                        valueRange = 1f..10f,
+                        steps = 8,
+                        onValueChangeFinished = { repository.saveReviewReplySettings(settings) },
+                        colors = SliderDefaults.colors(
+                            thumbColor = ThemeManager.parseColor(theme.accentColor),
+                            activeTrackColor = ThemeManager.parseColor(theme.accentColor)
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Упоминать название лота", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                            Text("AI назовёт товар в ответе", fontSize = 10.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                        }
+                        Switch(
+                            checked = settings.aiIncludeLotName,
+                            onCheckedChange = {
+                                settings = settings.copy(aiIncludeLotName = it)
+                                repository.saveReviewReplySettings(settings)
+                            },
+                            modifier = Modifier.scale(0.8f),
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = ThemeManager.parseColor(theme.accentColor),
+                                checkedTrackColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Упоминать дату", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                            Text("AI органично вставит дату отзыва", fontSize = 10.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                        }
+                        Switch(
+                            checked = settings.aiIncludeDate,
+                            onCheckedChange = {
+                                settings = settings.copy(aiIncludeDate = it)
+                                repository.saveReviewReplySettings(settings)
+                            },
+                            modifier = Modifier.scale(0.8f),
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = ThemeManager.parseColor(theme.accentColor),
+                                checkedTrackColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+
+                    Text("Стиль ответа:", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 12.sp)
+                    OutlinedTextField(
+                        value = settings.aiWritingStyle,
+                        onValueChange = {
+                            settings = settings.copy(aiWritingStyle = it)
+                            repository.saveReviewReplySettings(settings)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        maxLines = 2,
+                        placeholder = { Text("напр. «дерзко и с юмором», «официально»...") }
+                    )
+                    Text("Задаёт тон и характер ответа.", fontSize = 10.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+
+                    Text("Своя инструкция AI:", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 12.sp)
+                    OutlinedTextField(
+                        value = settings.aiCustomInstruction,
+                        onValueChange = {
+                            settings = settings.copy(aiCustomInstruction = it)
+                            repository.saveReviewReplySettings(settings)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        minLines = 2,
+                        maxLines = 4,
+                        placeholder = { Text("напр. «всегда заканчивай пожеланием удачи в игре»") }
+                    )
+                    Text("Дополнительные правила, которым будет следовать AI.", fontSize = 10.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Текст при сбое AI:", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 12.sp)
+                    OutlinedTextField(
+                        value = settings.aiFallbackText,
+                        onValueChange = { settings = settings.copy(aiFallbackText = it); repository.saveReviewReplySettings(settings) },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Спасибо за отзыв!") }
+                    )
+                    Text("Если AI не ответит 3 раза, будет отправлен этот текст.", fontSize = 10.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                } else {
+
+                    (5 downTo 1).forEach { stars ->
+                        val text = settings.manualTemplates[stars] ?: ""
+                        val isEnabled = !settings.disabledStars.contains(stars)
+
+                        Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                Text("${"⭐".repeat(stars)}", fontSize = 14.sp, modifier = Modifier.weight(1f))
+                                Switch(
+                                    checked = isEnabled,
+                                    onCheckedChange = { enabled ->
+                                        val d = settings.disabledStars.toMutableList()
+                                        if (enabled) d.remove(stars) else if (!d.contains(stars)) d.add(stars)
+                                        settings = settings.copy(disabledStars = d)
+                                        repository.saveReviewReplySettings(settings)
+                                    },
+                                    modifier = Modifier.scale(0.8f),
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = ThemeManager.parseColor(theme.accentColor),
+                                        checkedTrackColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.5f)
+                                    )
+                                )
+                            }
+                            if (isEnabled) {
+                                OutlinedTextField(
+                                    value = text,
+                                    onValueChange = { newText ->
+                                        val m = settings.manualTemplates.toMutableMap(); m[stars] = newText
+                                        settings = settings.copy(manualTemplates = m)
+                                        repository.saveReviewReplySettings(settings)
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    maxLines = 2,
+                                    placeholder = { Text("Текст ответа...") }
+                                )
+                            }
+                        }
+                        HorizontalDivider(color = Color.White.copy(0.1f))
+                    }
+
+
+                    var showReviewVarsHelp by remember { mutableStateOf(false) }
+                    Spacer(Modifier.height(6.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showReviewVarsHelp = !showReviewVarsHelp }
+                            .padding(vertical = 4.dp)
+                    ) {
+                        Icon(
+                            if (showReviewVarsHelp) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            null,
+                            tint = ThemeManager.parseColor(theme.accentColor),
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        Text(
+                            if (showReviewVarsHelp) "Скрыть справку по переменным" else "Показать справку по переменным",
+                            color = ThemeManager.parseColor(theme.accentColor),
+                            fontSize = 11.sp, fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                    if (showReviewVarsHelp) {
+                        Box(modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.25f))) {
+                            Text(
+                                FpPlaceholders.AVAILABLE_HELP_TEXT,
+                                color = ThemeManager.parseColor(theme.textSecondaryColor),
+                                fontSize = 10.sp, lineHeight = 14.sp,
+                                modifier = Modifier.padding(10.dp)
+                            )
+                        }
+                    }
+                }
+
+
+
+
+
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.dialogSurface(theme))
+                ) { Text("Закрыть", color = ThemeManager.parseColor(theme.textPrimaryColor)) }
+            }
+        }
+    }
+}
+
+/** Картинка или стикер, которые уже показаны в чате, но ещё не вернулись от FunPay. */
+private data class PendingMedia(
+    val id: String,
+    /** Что показываем: ссылка на стикер или content:// фото из галереи */
+    val model: String,
+    val time: String,
+    /** Самый новый ID с сервера на момент отправки: наше сообщение будет новее */
+    val baseline: Long,
+    /** 1 — отправляется, 2 — ошибка, 3 — FunPay принял, ждём его в истории */
+    val state: Int,
+    val sticker: Pair<StickerPack, StickerItem>? = null,
+    val uri: Uri? = null
+) {
+    fun toParsed() = ParsedMessage(
+        id = id,
+        author = "Вы",
+        text = "",
+        isMe = true,
+        time = time,
+        imageUrl = model,
+        sendState = if (state == 3) 0 else state,
+        // У стикера маленькое превью уже в кеше, оно видно сразу, пока грузится оригинал
+        localPreview = sticker?.let { StickerStore.thumbUrl(it.first, it.second) }
+    )
+}
+
+@Composable
+fun ChatDetailScreen(chatId: String, username: String, repository: FunPayRepository, theme: AppTheme, navController: NavController) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var messages by remember { mutableStateOf<List<MessageItem>>(emptyList()) }
+    var parsedMessages by remember { mutableStateOf<List<ParsedMessage>>(emptyList()) }
+    var olderMessages by remember { mutableStateOf<List<ParsedMessage>>(emptyList()) }
+    var isLoadingOlder by remember { mutableStateOf(false) }
+    var noMoreOlderMessages by remember { mutableStateOf(false) }
+    var isLoadingInitial by remember { mutableStateOf(true) }
+    var inputText by remember { mutableStateOf("") }
+    var isAiProcessing by remember { mutableStateOf(false) }
+    var showAiLimit by remember { mutableStateOf(false) }
+    var translateEnabled by remember { mutableStateOf(false) }
+    var translatedMessages by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+    val translateScope = rememberCoroutineScope()
+    val listState = rememberLazyListState()
+    var showImageDialog by remember { mutableStateOf(false) }
+    var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
+    var fullScreenImageUrl by remember { mutableStateOf<String?>(null) }
+    var previousMessageCount by remember { mutableIntStateOf(0) }
+    var selectionKey by remember { mutableIntStateOf(0) }
+    var chatInfo by remember { mutableStateOf<ChatInfo?>(null) }
+    var showTemplatesMenu by remember { mutableStateOf(false) }
+    var selectedMessageIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var isSelectionMode by remember { mutableStateOf(false) }
+    var replyToMessage by remember { mutableStateOf<ParsedMessage?>(null) }
+    var showSearch by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var currentSearchIndex by remember { mutableStateOf(0) }
+    val focusManager = LocalFocusManager.current
+
+    // Картинки и стикеры: показываются сразу, с часиками, пока FunPay их не принял (как в Telegram)
+    var pendingMedia by remember { mutableStateOf<List<PendingMedia>>(emptyList()) }
+    /** Почему FunPay не принял сообщение («Вы пока что не можете писать в этот чат» и т.п.) */
+    var sendError by remember { mutableStateOf<String?>(null) }
+    val confirmedPreviews = remember { mutableStateMapOf<String, String>() }
+    val sendMediaMutex = remember { kotlinx.coroutines.sync.Mutex() }
+
+    val allMessages by remember {
+        derivedStateOf {
+            val server = (olderMessages + parsedMessages)
+                .distinctBy { it.id }
+                .map { m -> confirmedPreviews[m.id]?.let { m.copy(localPreview = it) } ?: m }
+            (server + pendingMedia.map { it.toParsed() })
+                .sortedBy { it.id.toLongOrNull() ?: 0L }
+        }
+    }
+
+    // Строки списка: сообщения + плашки дат, с флагами групп (первое/последнее подряд)
+    val rows by remember { derivedStateOf { buildChatRows(allMessages) } }
+    val showPeerCard = !GameChatsRegistry.isSystemChatId(chatId) && chatInfo != null && !isLoadingInitial
+
+    // Метка FunPay Tools: собеседник пишет из расширения или приложения
+    val fptUsers by FptMark.users.collectAsState()
+    val fptDismissed by FptMark.dismissed.collectAsState()
+    val peerUid: String? = chatInfo?.peerUserId
+        ?: allMessages.lastOrNull { !it.isMe && !it.isSystem && !it.authorUserId.isNullOrBlank() && it.authorUserId != "0" }?.authorUserId
+    val peerIsFpt = !GameChatsRegistry.isSystemChatId(chatId) && peerUid != null && peerUid in fptUsers
+    fun headerCount(): Int = (if (showPeerCard) 1 else 0) + (if (!noMoreOlderMessages && !isLoadingInitial) 1 else 0)
+    fun lastRowIndex(): Int = (rows.size - 1 + headerCount()).coerceAtLeast(0)
+    fun rowIndexOfMessage(msgIdx: Int): Int {
+        val id = allMessages.getOrNull(msgIdx)?.id ?: return 0
+        val r = rows.indexOfFirst { it.msg?.id == id }
+        return (r + headerCount()).coerceAtLeast(0)
+    }
+    fun rowIndexOfMessageId(id: String): Int {
+        val r = rows.indexOfFirst { it.msg?.id == id }
+        return if (r < 0) -1 else r + headerCount()
+    }
+    var flashMessageId by remember { mutableStateOf<String?>(null) }
+    var selectTextDialogFor by remember { mutableStateOf<ParsedMessage?>(null) }
+
+    /** Самый новый ID сообщения с сервера (временные ID из миллисекунд не считаем). */
+    fun maxServerId(): Long = (olderMessages + parsedMessages)
+        .maxOfOrNull { m -> m.id.toLongOrNull()?.takeIf { it < 100_000_000_000L } ?: 0L } ?: 0L
+
+    fun runPendingSend(p: PendingMedia) {
+        scope.launch {
+            var failReason: String? = null
+            val ok = sendMediaMutex.withLock {
+                FunPayRepository.lastOutgoingMessages[chatId] = "__image__"
+                val fileId = try {
+                    when {
+                        p.sticker != null -> StickerStore.preparePng(context, p.sticker.first, p.sticker.second)
+                            ?.let { repository.uploadImageFile(it, "image/png") }
+                        p.uri != null -> repository.uploadImage(p.uri)
+                        else -> null
+                    }
+                } catch (_: Exception) { null }
+                if (fileId == null) {
+                    failReason = "Не удалось загрузить картинку на FunPay"
+                    return@withLock false
+                }
+                val sent = repository.sendMessage(chatId, "", fileId)
+                if (!sent) failReason = repository.lastSendError ?: "Картинка не отправлена"
+                if (sent) delay(400) // FunPay не любит пачку картинок подряд
+                sent
+            }
+            pendingMedia = pendingMedia.map { if (it.id == p.id) it.copy(state = if (ok) 3 else 2) else it }
+            if (!ok) sendError = failReason
+            if (ok && repository.getReadMarkSettings().markAfterManualReply) repository.markChatAsRead(chatId)
+        }
+    }
+
+    /** Сразу показывает картинки/стикеры в чате и отправляет их по очереди. */
+    fun enqueueMedia(items: List<Triple<String, Pair<StickerPack, StickerItem>?, Uri?>>) {
+        if (items.isEmpty()) return
+        val base = maxServerId()
+        val now = System.currentTimeMillis()
+        val hhmm = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+        val added = items.mapIndexed { i, (model, st, uri) ->
+            PendingMedia((now + i).toString(), model, hhmm, base, 1, st, uri)
+        }
+        pendingMedia = pendingMedia + added
+        scope.launch {
+            delay(16)
+            try { listState.animateScrollToItem(lastRowIndex()) } catch (_: Exception) {}
+        }
+        added.forEach { runPendingSend(it) }
+    }
+
+    fun retryPending(id: String) {
+        val p = pendingMedia.firstOrNull { it.id == id } ?: return
+        val again = p.copy(state = 1)
+        pendingMedia = pendingMedia.map { if (it.id == id) again else it }
+        runPendingSend(again)
+    }
+
+    /** Когда FunPay вернул нашу картинку, временное сообщение заменяется настоящим без мигания. */
+    fun reconcilePending() {
+        if (pendingMedia.none { it.state == 1 || it.state == 3 }) return
+        val serverMine = parsedMessages
+            .filter { it.isMe && it.imageUrl != null && it.id !in confirmedPreviews }
+            .mapNotNull { m -> m.id.toLongOrNull()?.takeIf { it < 100_000_000_000L }?.let { it to m } }
+            .sortedBy { it.first }
+        val used = HashSet<Long>()
+        val keep = ArrayList<PendingMedia>()
+        for (p in pendingMedia) {
+            if (p.state == 2) { keep += p; continue }
+            val match = serverMine.firstOrNull { it.first > p.baseline && it.first !in used }
+            if (match != null) {
+                used += match.first
+                confirmedPreviews[match.second.id] = p.model
+            } else keep += p
+        }
+        if (keep.size != pendingMedia.size) pendingMedia = keep
+    }
+
+    var selectedMultipleUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var showMultiImageDialog by remember { mutableStateOf(false) }
+
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia(maxItems = 10)
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            selectedMultipleUris = uris
+            showMultiImageDialog = true
+        }
+    }
+
+    val receiveContentListener = remember {
+        ReceiveContentListener { transferableContent ->
+            // iOS: images from the keyboard/paste menu come through the clipboard button below
+            transferableContent
+        }
+    }
+
+    // ===== Вставка картинки из буфера обмена (скопировал в галерее/браузере → «Вставить» над полем) =====
+    val clipboard = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
+    var clipImageStamp by remember { mutableStateOf<Long?>(null) }
+    var usedClipStamp by remember { mutableStateOf<Long?>(null) }
+    var inputFocused by remember { mutableStateOf(false) }
+    fun checkClipboardImage() {
+        val d = try { clipboard.primaryClipDescription } catch (_: Exception) { null }
+        val hasImage = d != null && (0 until d.mimeTypeCount).any { d.getMimeType(it).startsWith("image/") }
+        clipImageStamp = if (hasImage) {
+            if (AndroidBuild.VERSION.SDK_INT >= AndroidBuild.VERSION_CODES.O) d!!.timestamp else 1L
+        } else null
+    }
+    fun pasteClipboardImage() {
+        val clip = try { clipboard.primaryClip } catch (_: Exception) { null }
+        usedClipStamp = clipImageStamp
+        val uris = clip?.let { c -> (0 until c.itemCount).mapNotNull { c.getItemAt(it).uri } }.orEmpty()
+        if (uris.isEmpty()) {
+            Toast.makeText(context, "В буфере нет картинки", Toast.LENGTH_SHORT).show()
+            return
+        }
+        selectedMultipleUris = uris.take(10)
+        showMultiImageDialog = true
+    }
+    DisposableEffect(Unit) {
+        checkClipboardImage()
+        val listener = ClipboardManager.OnPrimaryClipChangedListener { checkClipboardImage() }
+        clipboard.addPrimaryClipChangedListener(listener)
+        onDispose { clipboard.removePrimaryClipChangedListener(listener) }
+    }
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val obs = androidx.lifecycle.LifecycleEventObserver { _, e ->
+            if (e == androidx.lifecycle.Lifecycle.Event.ON_RESUME) checkClipboardImage()
+        }
+        lifecycleOwner.lifecycle.addObserver(obs)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(obs) }
+    }
+
+    if (showAiLimit) {
+        AiLimitDialog(theme = theme, onDismiss = { showAiLimit = false }) {
+            showAiLimit = false
+        }
+    }
+
+    LaunchedEffect(chatId) {
+        scope.launch {
+            chatInfo = repository.getChatInfo(chatId)
+        }
+        while (true) {
+            messages = repository.getChatHistory(chatId)
+            val _otherUid = chatId.removePrefix("users-").split("-").firstOrNull() ?: ""
+            parsedMessages = parseMessagesFromRepository(messages, repository, _otherUid)
+            reconcilePending()
+
+            if (translateEnabled) {
+                val incoming = parsedMessages.filter { !it.isMe && !it.isSystem && it.text.isNotBlank() }
+                incoming.forEach { msg ->
+                    if (!translatedMessages.containsKey(msg.id)) {
+                        translateScope.launch {
+                            val translated = googleTranslate(msg.text, "ru")
+                            if (translated != null && translated != msg.text) {
+                                translatedMessages = translatedMessages + (msg.id to translated)
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (isLoadingInitial) {
+                isLoadingInitial = false
+                if (messages.size < 15) noMoreOlderMessages = true
+                if (allMessages.isNotEmpty()) {
+                    try { listState.scrollToItem(lastRowIndex()) } catch (e: Exception) { }
+                }
+                previousMessageCount = messages.size
+            } else if (messages.size > previousMessageCount) {
+                // Как в Telegram: не дёргаем список, если пользователь читает историю выше
+                val info = listState.layoutInfo
+                val nearBottom = (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 4
+                if (allMessages.isNotEmpty() && nearBottom && !isSelectionMode) {
+                    try { listState.animateScrollToItem(lastRowIndex()) } catch (e: Exception) { }
+                }
+                previousMessageCount = messages.size
+            }
+
+            delay(3000)
+        }
+    }
+
+    selectTextDialogFor?.let { m ->
+        SelectMessageTextDialog(
+            text = m.text,
+            theme = theme,
+            onCopyAll = {
+                val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                cm.setPrimaryClip(ClipData.newPlainText("message", m.text))
+                Toast.makeText(context, "Текст скопирован", Toast.LENGTH_SHORT).show()
+                selectTextDialogFor = null
+            },
+            onDismiss = { selectTextDialogFor = null }
+        )
+    }
+
+    if (fullScreenImageUrl != null) {
+        FullScreenImageDialog(
+            imageUrl = fullScreenImageUrl!!,
+            repository = repository,
+            theme = theme,
+            onDismiss = { fullScreenImageUrl = null }
+        )
+    }
+
+    if (showMultiImageDialog && selectedMultipleUris.isNotEmpty()) {
+        Dialog(onDismissRequest = { showMultiImageDialog = false }) {
+            Box(modifier = Modifier.clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.dialogSurface(theme))) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        "Отправить ${selectedMultipleUris.size} фото?",
+                        fontWeight = FontWeight.Bold,
+                        color = ThemeManager.parseColor(theme.textPrimaryColor),
+                        fontSize = 18.sp
+                    )
+                    Spacer(Modifier.height(12.dp))
+
+                    val preview = selectedMultipleUris.take(4)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        preview.forEach { uri ->
+                            AsyncImage(
+                                model = uri,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(80.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                                contentScale = ContentScale.Crop
+                            )
+                        }
+                    }
+                    if (selectedMultipleUris.size > 4) {
+                        Text(
+                            "+${selectedMultipleUris.size - 4} ещё",
+                            color = ThemeManager.parseColor(theme.textSecondaryColor),
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                    Spacer(Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { showMultiImageDialog = false },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ThemeManager.parseColor(theme.surfaceColor)
+                            )
+                        ) {
+                            Text("Отмена", color = ThemeManager.parseColor(theme.textPrimaryColor))
+                        }
+                        Button(
+                            onClick = {
+                                showMultiImageDialog = false
+                                val urisToSend = selectedMultipleUris.toList()
+                                selectedMultipleUris = emptyList()
+                                // Фото сразу появляются в чате с часиками и уходят по очереди
+                                enqueueMedia(urisToSend.map { Triple(it.toString(), null, it) })
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ThemeManager.parseColor(theme.accentColor)
+                            )
+                        ) {
+                            Text("Отправить")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showImageDialog && selectedImageUri != null) {
+        Dialog(onDismissRequest = { showImageDialog = false }) {
+            Box(modifier = Modifier.clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.dialogSurface(theme))) {
+                Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Отправить изображение?", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 18.sp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    AsyncImage(
+                        model = selectedImageUri,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        contentScale = ContentScale.Crop
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(
+                            onClick = { showImageDialog = false },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                        ) {
+                            Text("Отмена", color = ThemeManager.parseColor(theme.textPrimaryColor))
+                        }
+                        Button(
+                            onClick = {
+                                showImageDialog = false
+                                selectedImageUri?.let { u -> enqueueMedia(listOf(Triple(u.toString(), null, u))) }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                        ) {
+                            Text("Отправить")
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    val backSwipeDensity = LocalDensity.current
+    var backSwipeOffset by remember { mutableStateOf(0f) }
+    val animatedBackOffset by animateFloatAsState(targetValue = backSwipeOffset, label = "backSwipe")
+    val backSwipeTriggerPx = with(backSwipeDensity) { 100.dp.toPx() }
+    val backSwipeEdgePx = with(backSwipeDensity) { 24.dp.toPx() }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .offset { IntOffset(animatedBackOffset.toInt(), 0) }
+            .background(ThemeManager.parseColor(theme.backgroundColor))
+            // Клавиатуру и панель стикеров учитывает нижняя область экрана (см. chatBottomArea)
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+
+                    if (down.position.x > backSwipeEdgePx) return@awaitEachGesture
+                    var totalDx = 0f
+                    var totalDy = 0f
+                    var triggered = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: break
+                        if (change.changedToUp()) {
+                            if (backSwipeOffset > backSwipeTriggerPx && !triggered) {
+                                triggered = true
+                                navController.popBackStack()
+                            }
+                            backSwipeOffset = 0f
+                            break
+                        }
+                        val dx = change.position.x - change.previousPosition.x
+                        val dy = change.position.y - change.previousPosition.y
+                        totalDx += dx
+                        totalDy += dy
+                        if (totalDx > abs(totalDy) * 1.5f && totalDx > 8f) {
+                            backSwipeOffset = (backSwipeOffset + dx).coerceAtLeast(0f)
+                            change.consume()
+                        }
+                    }
+                }
+            }
+    ) {
+        Surface(
+            color = ThemeManager.parseColor(theme.surfaceColor),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .windowInsetsPadding(WindowInsets.statusBars)
+                        .padding(horizontal = 4.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (isSelectionMode) {
+                        IconButton(onClick = {
+                            isSelectionMode = false
+                            selectedMessageIds = emptySet()
+                        }) {
+                            Icon(Icons.Default.Close, null, tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                        }
+                        Text(
+                            "Выбрано: ${selectedMessageIds.size}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = ThemeManager.parseColor(theme.textPrimaryColor),
+                            modifier = Modifier.weight(1f)
+                        )
+                        if (selectedMessageIds.size == 1) {
+                            val selectedMsg = allMessages.find { it.id in selectedMessageIds }
+                            if (selectedMsg != null) {
+                                IconButton(onClick = {
+                                    replyToMessage = selectedMsg
+                                    isSelectionMode = false
+                                    selectedMessageIds = emptySet()
+                                }) {
+                                    Icon(Icons.Default.Reply, null, tint = ThemeManager.parseColor(theme.accentColor))
+                                }
+                            }
+                        }
+                        if (selectedMessageIds.size == 1) {
+                            val single = allMessages.find { it.id in selectedMessageIds }
+                            if (single != null && single.text.isNotBlank()) {
+                                IconButton(onClick = {
+                                    selectTextDialogFor = single
+                                    isSelectionMode = false
+                                    selectedMessageIds = emptySet()
+                                }) {
+                                    Icon(Icons.Default.TextFields, "Выделить текст", tint = ThemeManager.parseColor(theme.accentColor))
+                                }
+                            }
+                        }
+                        IconButton(onClick = {
+                            val selected = allMessages.filter { it.id in selectedMessageIds }
+                            // Одно сообщение — копируем только текст (как в Telegram), несколько — с автором и временем
+                            val text = if (selected.size == 1) selected.first().text else selected
+                                .joinToString("\n\n") { msg ->
+                                    val who = if (msg.isMe) "Я" else msg.author.takeIf { it.isNotBlank() && it != "Unknown" } ?: username
+                                    "[$who, ${msg.time}]: ${msg.text}"
+                                }
+                            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            cm.setPrimaryClip(ClipData.newPlainText("messages", text))
+                            Toast.makeText(context, if (selected.size == 1) "Текст скопирован" else "Скопировано ${selected.size} сообщ.", Toast.LENGTH_SHORT).show()
+                            isSelectionMode = false
+                            selectedMessageIds = emptySet()
+                        }) {
+                            Icon(Icons.Default.ContentCopy, null, tint = ThemeManager.parseColor(theme.accentColor))
+                        }
+                    } else {
+
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                        }
+                        if (chatInfo?.avatarUrl != null) {
+                            AsyncImage(
+                                model = chatInfo!!.avatarUrl,
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .clickable(enabled = !GameChatsRegistry.isSystemChatId(chatId)) {
+                                        navController.navigate("profile/$chatId/$username")
+                                    },
+                                contentScale = ContentScale.Crop
+                            )
+                            Spacer(Modifier.width(10.dp))
+                        }
+                        Column(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clickable(enabled = !GameChatsRegistry.isSystemChatId(chatId)) {
+                                    navController.navigate("profile/$chatId/$username")
+                                }
+                        ) {
+                            Text(
+                                username,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 16.sp,
+                                color = ThemeManager.parseColor(theme.textPrimaryColor),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                            val subtitle = chatInfo?.userStatus?.takeIf { it.isNotBlank() }.orEmpty()
+                            if (subtitle.isNotEmpty()) {
+                                Text(
+                                    text = subtitle,
+                                    fontSize = 12.sp,
+                                    color = ThemeManager.parseColor(theme.textSecondaryColor),
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+
+                        var showTopMenu by remember { mutableStateOf(false) }
+                        Box {
+                            IconButton(onClick = { showTopMenu = true }) {
+                                Icon(Icons.Default.MoreVert, null, tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                            }
+                            DropdownMenu(
+                                expanded = showTopMenu,
+                                onDismissRequest = { showTopMenu = false },
+                                modifier = Modifier.background(ThemeManager.dialogSurface(theme))
+                            ) {
+                                if (peerIsFpt) {
+                                    FptMenuHint(theme)
+                                    HorizontalDivider(color = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.12f))
+                                }
+                                DropdownMenuItem(
+                                    text = { Text("Поиск", color = ThemeManager.parseColor(theme.textPrimaryColor)) },
+                                    onClick = { showSearch = !showSearch; searchQuery = ""; showTopMenu = false },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Search, null,
+                                            tint = if (showSearch) ThemeManager.parseColor(theme.accentColor)
+                                            else ThemeManager.parseColor(theme.textSecondaryColor))
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            if (translateEnabled) "Выкл. перевод" else "Перевести",
+                                            color = ThemeManager.parseColor(theme.textPrimaryColor)
+                                        )
+                                    },
+                                    onClick = { translateEnabled = !translateEnabled; showTopMenu = false },
+                                    leadingIcon = {
+                                        Icon(Icons.Default.Translate, null,
+                                            tint = if (translateEnabled) ThemeManager.parseColor(theme.accentColor)
+                                            else ThemeManager.parseColor(theme.textSecondaryColor))
+                                    }
+                                )
+                                if (!GameChatsRegistry.isSystemChatId(chatId)) {
+                                    DropdownMenuItem(
+                                        text = { Text("Профиль", color = ThemeManager.parseColor(theme.textPrimaryColor)) },
+                                        onClick = { navController.navigate("profile/$chatId/$username"); showTopMenu = false },
+                                        leadingIcon = {
+                                            Icon(Icons.Default.AccountCircle, null,
+                                                tint = ThemeManager.parseColor(theme.accentColor))
+                                        }
+                                    )
+                                    val myId = repository.getMyUserId()
+                                    val parts = chatId.removePrefix("users-").split("-")
+                                    val otherUid = peerUid ?: parts.firstOrNull { it != myId && it.isNotEmpty() } ?: parts.lastOrNull() ?: ""
+                                    DropdownMenuItem(
+                                        text = { Text("История заказов", color = ThemeManager.parseColor(theme.textPrimaryColor)) },
+                                        onClick = {
+                                            navController.navigate("buyer_history/${Uri.encode(username)}/${Uri.encode(otherUid)}")
+                                            showTopMenu = false
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Default.Receipt, null,
+                                                tint = ThemeManager.parseColor(theme.accentColor))
+                                        }
+                                    )
+                                } else {
+                                    DropdownMenuItem(
+                                        text = { Text("Открыть в браузере", color = ThemeManager.parseColor(theme.textPrimaryColor)) },
+                                        onClick = {
+                                            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://funpay.com/chat/?node=$chatId"))) } catch (_: Exception) {}
+                                            showTopMenu = false
+                                        },
+                                        leadingIcon = {
+                                            Icon(Icons.Default.OpenInBrowser, null,
+                                                tint = ThemeManager.parseColor(theme.accentColor))
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+
+                AnimatedVisibility(visible = showSearch && !isSelectionMode) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        OutlinedTextField(
+                            value = searchQuery,
+                            onValueChange = { q ->
+                                searchQuery = q
+                                if (q.isBlank()) {
+                                    searchResults = emptyList()
+                                } else {
+                                    searchResults = allMessages.indices.filter { idx ->
+                                        allMessages[idx].text.contains(q, ignoreCase = true)
+                                    }
+                                    currentSearchIndex = if (searchResults.isNotEmpty()) searchResults.lastIndex else 0
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Поиск по загруженным сообщениям...", fontSize = 13.sp) },
+                            singleLine = true,
+                            leadingIcon = { Icon(Icons.Default.Search, null, tint = ThemeManager.parseColor(theme.accentColor)) },
+                            trailingIcon = {
+                                if (searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { searchQuery = ""; searchResults = emptyList() }) {
+                                        Icon(Icons.Default.Clear, null)
+                                    }
+                                }
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                                focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                cursorColor = ThemeManager.parseColor(theme.accentColor)
+                            ),
+                            shape = RoundedCornerShape(24.dp)
+                        )
+                        if (searchResults.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    "${currentSearchIndex + 1} из ${searchResults.size} совпадений",
+                                    fontSize = 12.sp,
+                                    color = ThemeManager.parseColor(theme.textSecondaryColor)
+                                )
+                                Row {
+                                    IconButton(onClick = {
+                                        if (searchResults.isNotEmpty()) {
+                                            currentSearchIndex = (currentSearchIndex - 1 + searchResults.size) % searchResults.size
+                                            scope.launch {
+                                                try { listState.scrollToItem(rowIndexOfMessage(searchResults[currentSearchIndex])) } catch (_: Exception) {}
+                                            }
+                                        }
+                                    }, modifier = Modifier.size(36.dp)) {
+                                        Icon(Icons.Default.KeyboardArrowUp, null, tint = ThemeManager.parseColor(theme.accentColor))
+                                    }
+                                    IconButton(onClick = {
+                                        if (searchResults.isNotEmpty()) {
+                                            currentSearchIndex = (currentSearchIndex + 1) % searchResults.size
+                                            scope.launch {
+                                                try { listState.scrollToItem(rowIndexOfMessage(searchResults[currentSearchIndex])) } catch (_: Exception) {}
+                                            }
+                                        }
+                                    }, modifier = Modifier.size(36.dp)) {
+                                        Icon(Icons.Default.KeyboardArrowDown, null, tint = ThemeManager.parseColor(theme.accentColor))
+                                    }
+                                }
+                            }
+                        } else if (searchQuery.isNotEmpty()) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text("Не найдено среди загруженных", fontSize = 12.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        try { listState.scrollToItem(0) } catch (_: Exception) {}
+                                    }
+                                }) {
+                                    Text("Загрузить ещё ↑", fontSize = 12.sp, color = ThemeManager.parseColor(theme.accentColor))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // "Смотрит лот" — как закреплённое сообщение в Telegram
+        val lookingName = chatInfo?.lookingAtName
+        AnimatedVisibility(visible = lookingName != null) {
+            val info = chatInfo
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ThemeManager.dialogSurface(theme))
+                    .clickable {
+                        // Свой лот → редактор лота в FunPay Tools (оттуда можно открыть во встроенном браузере).
+                        // Если ID не нашёлся, открываем страницу во встроенном браузере, а не в системном.
+                        val link = info?.lookingAtLink.orEmpty()
+                        val lotId = Regex("[?&](?:id|offer)=(\\d+)").find(link)?.groupValues?.get(1)
+                        when {
+                            lotId != null -> navController.navigate("lot_edit/$lotId")
+                            link.startsWith("https://funpay.com") -> navController.navigate("funpay_browser_url/${Uri.encode(link)}")
+                            link.isNotEmpty() -> try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link))) } catch (_: Exception) {}
+                        }
+                    }
+                    .padding(horizontal = 14.dp, vertical = 7.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier
+                        .width(2.5.dp)
+                        .height(32.dp)
+                        .background(ThemeManager.parseColor(theme.accentColor), RoundedCornerShape(2.dp))
+                )
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Смотрит лот", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = ThemeManager.parseColor(theme.accentColor))
+                    Text(
+                        info?.lookingAtName.orEmpty(),
+                        fontSize = 13.sp,
+                        color = ThemeManager.parseColor(theme.textPrimaryColor),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                Icon(Icons.Default.Edit, null, tint = ThemeManager.parseColor(theme.textSecondaryColor), modifier = Modifier.size(18.dp))
+            }
+        }
+
+        // «Собеседник тоже пользуется FunPay Tools»: тонкая плашка как плеер в Telegram, под «Смотрит лот»
+        AnimatedVisibility(
+            visible = peerIsFpt && peerUid !in fptDismissed,
+            enter = expandVertically(tween(260)) + fadeIn(tween(260)),
+            exit = shrinkVertically(tween(200)) + fadeOut(tween(160))
+        ) {
+            FptPeerBanner(rememberChatPalette(theme), theme) { peerUid?.let { FptMark.dismissBanner(it) } }
+        }
+
+        // ===== Список сообщений в стиле Telegram =====
+        val palette = rememberChatPalette(theme)
+        val haptic = LocalHapticFeedback.current
+        val isPublicChat = remember(chatId) { GameChatsRegistry.isSystemChatId(chatId) }
+
+        var pressedMessageId by remember { mutableStateOf<String?>(null) }
+        var pulseCounter by remember { mutableIntStateOf(0) }
+        var pulseMessageId by remember { mutableStateOf<String?>(null) }
+        var dragBaseSelection by remember { mutableStateOf<Set<String>>(emptySet()) }
+        var dragAnchorId by remember { mutableStateOf<String?>(null) }
+        var dragSelectMode by remember { mutableStateOf(true) }
+        val selectionModeState = rememberUpdatedState(isSelectionMode)
+
+        fun msgIndex(id: String) = allMessages.indexOfFirst { it.id == id }
+
+        // Плавающая дата сверху при прокрутке
+        var showFloatingDate by remember { mutableStateOf(false) }
+        LaunchedEffect(listState.isScrollInProgress) {
+            if (listState.isScrollInProgress) showFloatingDate = true
+            else { delay(1100); showFloatingDate = false }
+        }
+        val floatingDate by remember {
+            derivedStateOf {
+                val firstVisible = listState.layoutInfo.visibleItemsInfo.firstOrNull()?.index ?: 0
+                val offset = headerCount()
+                val row = rows.getOrNull((firstVisible - offset).coerceAtLeast(0))
+                row?.dayKey?.let { ChatDates.label(it) }
+            }
+        }
+
+        // ===== Нижняя область: клавиатура или панель стикеров (как в Telegram, без прыжков) =====
+        val chatDensity = LocalDensity.current
+        val imeInsets = WindowInsets.ime
+        val navInsets = WindowInsets.navigationBars
+        val keyboardController = LocalSoftwareKeyboardController.current
+        val inputFocus = remember { FocusRequester() }
+        var showStickers by remember { mutableStateOf(false) }
+        var pendingKeyboard by remember { mutableStateOf(false) }
+        var inputBarHeightPx by remember { mutableIntStateOf(0) }
+        val panelHeightPx = remember {
+            with(chatDensity) { (StickerStore.panelHeightDp(context).takeIf { it > 0 } ?: 290).dp.roundToPx() }
+        }
+        fun bottomAreaPx(): Int {
+            val ime = imeInsets.getBottom(chatDensity)
+            val nav = navInsets.getBottom(chatDensity)
+            return if (showStickers) maxOf(ime, panelHeightPx + nav) else maxOf(ime, nav)
+        }
+        // Запоминаем высоту клавиатуры: панель стикеров будет такой же
+        LaunchedEffect(Unit) {
+            StickerStore.loadCached(context)
+            snapshotFlow { imeInsets.getBottom(chatDensity) - navInsets.getBottom(chatDensity) }
+                .collect { px ->
+                    val dp = with(chatDensity) { px.toDp().value.toInt() }
+                    if (dp > 180) { delay(400); StickerStore.savePanelHeightDp(context, dp) }
+                }
+        }
+        // Панель → клавиатура: прячем панель, только когда клавиатура уже выехала
+        LaunchedEffect(pendingKeyboard) {
+            if (pendingKeyboard) {
+                withTimeoutOrNull(450) {
+                    snapshotFlow { imeInsets.getBottom(chatDensity) }
+                        .first { it >= panelHeightPx + navInsets.getBottom(chatDensity) - 4 }
+                }
+                showStickers = false
+                pendingKeyboard = false
+            }
+        }
+        BackHandler(enabled = showStickers) { showStickers = false }
+        // Если читали низ переписки, низ остаётся на месте, пока выезжает клавиатура
+        LaunchedEffect(listState) {
+            var prev = -1
+            snapshotFlow { bottomAreaPx() + inputBarHeightPx }.collect { v ->
+                val d = v - prev
+                if (prev >= 0 && d > 0) {
+                    val info = listState.layoutInfo
+                    val nearBottom = (info.visibleItemsInfo.lastOrNull()?.index ?: 0) >= info.totalItemsCount - 2
+                    if (nearBottom) try { listState.scrollBy(d.toFloat()) } catch (_: Exception) {}
+                }
+                prev = v
+            }
+        }
+        val inputBarDp = with(chatDensity) { inputBarHeightPx.toDp() }
+
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+        ) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .telegramSelectionGestures(
+                        listState = listState,
+                        keyToMessageId = { key -> (key as? String)?.takeIf { it.startsWith("m_") }?.removePrefix("m_") },
+                        isSelectionMode = { selectionModeState.value },
+                        onPressStart = { id -> pressedMessageId = id },
+                        onLongPress = { id ->
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            pulseMessageId = id
+                            pulseCounter++
+                            focusManager.clearFocus()
+                            dragBaseSelection = selectedMessageIds
+                            dragAnchorId = id
+                            dragSelectMode = id !in selectedMessageIds
+                            isSelectionMode = true
+                            selectedMessageIds = if (dragSelectMode) selectedMessageIds + id else selectedMessageIds - id
+                            if (selectedMessageIds.isEmpty()) isSelectionMode = false
+                        },
+                        onDragOver = { id ->
+                            val a = dragAnchorId?.let { msgIndex(it) } ?: -1
+                            val b = msgIndex(id)
+                            if (a >= 0 && b >= 0) {
+                                val range = allMessages.subList(minOf(a, b), maxOf(a, b) + 1).map { it.id }.toSet()
+                                val newSel = if (dragSelectMode) dragBaseSelection + range else dragBaseSelection - range
+                                if (newSel != selectedMessageIds) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    selectedMessageIds = newSel
+                                    isSelectionMode = newSel.isNotEmpty()
+                                }
+                            }
+                        },
+                        onDragEnd = { dragAnchorId = null },
+                        onTapInSelection = { id ->
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            selectedMessageIds = if (id in selectedMessageIds) selectedMessageIds - id else selectedMessageIds + id
+                            if (selectedMessageIds.isEmpty()) isSelectionMode = false
+                        },
+                        scope = scope
+                    ),
+                // Поле ввода «плавает» над списком: сообщения уходят под него, как в Telegram
+                contentPadding = PaddingValues(top = 8.dp, bottom = 10.dp + inputBarDp)
+            ) {
+                if (showPeerCard) {
+                    item(key = "peer_info") {
+                        val info = chatInfo
+                        val isEnglishPeer = info?.language?.let { it.contains("English", true) || it.contains("Английский", true) || it.contains("Англ", true) } == true
+                        val isOfficialPeer = allMessages.any { m ->
+                            !m.isMe && m.badge?.let { b -> b.contains("поддержка", true) || b.contains("арбитраж", true) || b.contains("модератор", true) || b.contains("support", true) } == true
+                        }
+                        ChatPeerInfoCard(
+                            name = username,
+                            isEnglish = isEnglishPeer,
+                            registration = shortRegistration(info?.registrationDate),
+                            isOfficial = isOfficialPeer,
+                            palette = palette
+                        )
+                    }
+                }
+                if (!noMoreOlderMessages && !isLoadingInitial) {
+                    item(key = "load_older_btn") {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 6.dp), contentAlignment = Alignment.Center) {
+                            if (isLoadingOlder) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(24.dp),
+                                    color = ThemeManager.parseColor(theme.accentColor),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    "Загрузить ещё",
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(50))
+                                        .background(palette.chip)
+                                        .clickable {
+                                            val oldestId = allMessages.firstOrNull()?.id ?: return@clickable
+                                            isLoadingOlder = true
+                                            val anchorIndex = listState.firstVisibleItemIndex
+                                            val anchorOffset = listState.firstVisibleItemScrollOffset
+                                            scope.launch {
+                                                try {
+                                                    val otherUid = chatId.removePrefix("users-").split("-").firstOrNull() ?: ""
+                                                    val fetched = repository.fetchOlderMessages(chatId, oldestId)
+                                                    if (fetched.isEmpty()) {
+                                                        noMoreOlderMessages = true
+                                                    } else {
+                                                        val parsed = parseMessagesFromRepository(fetched, repository, otherUid)
+                                                        val before = rows.size
+                                                        olderMessages = parsed + olderMessages
+                                                        if (fetched.size < 15) noMoreOlderMessages = true
+                                                        delay(16)
+                                                        val added = (rows.size - before).coerceAtLeast(parsed.size)
+                                                        try {
+                                                            listState.scrollToItem(
+                                                                index = (anchorIndex + added).coerceAtLeast(0),
+                                                                scrollOffset = anchorOffset
+                                                            )
+                                                        } catch (_: Exception) { }
+                                                    }
+                                                } catch (_: Exception) {
+                                                    noMoreOlderMessages = true
+                                                } finally {
+                                                    isLoadingOlder = false
+                                                }
+                                            }
+                                        }
+                                        .padding(horizontal = 14.dp, vertical = 6.dp),
+                                    color = palette.chipText,
+                                    fontSize = 13.sp
+                                )
+                            }
+                        }
+                    }
+                }
+                items(rows, key = { it.key }) { row ->
+                    if (row.msg == null) {
+                        ChatDateChip(row.dateLabel.orEmpty(), palette, Modifier.padding(vertical = 8.dp))
+                    } else {
+                        val msg = row.msg
+                        val isSelected = msg.id in selectedMessageIds
+                        val isSearchHighlight = showSearch && searchQuery.isNotEmpty() &&
+                                msg.text.contains(searchQuery, ignoreCase = true)
+                        TelegramMessageBubble(
+                            message = msg,
+                            palette = palette,
+                            theme = theme,
+                            isFirstInGroup = row.first,
+                            isLastInGroup = row.last,
+                            showAuthor = isPublicChat,
+                            isSelected = isSelected,
+                            isSelectionMode = isSelectionMode,
+                            isPressed = pressedMessageId == msg.id,
+                            pulseKey = if (pulseMessageId == msg.id) pulseCounter else 0,
+                            isSearchHighlight = isSearchHighlight,
+                            searchQuery = if (showSearch) searchQuery else "",
+                            translatedText = if (translateEnabled) translatedMessages[msg.id] else null,
+                            onSwipeReply = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                replyToMessage = msg
+                            },
+                            onLinkClick = { link ->
+                                when (link.type) {
+                                    LinkType.ORDER -> {
+                                        val orderId = link.url.substringAfter("orders/").substringBefore("/")
+                                        if (orderId.isNotEmpty()) navController.navigate("order/$orderId")
+                                    }
+                                    LinkType.LOT -> {
+                                        val lotId = Regex("[?&]id=([A-Za-z0-9\\-]+)")
+                                            .find(link.url)?.groupValues?.getOrNull(1)
+                                        if (!lotId.isNullOrBlank()) {
+                                            navController.navigate("lot/$lotId")
+                                        } else {
+                                            try {
+                                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url)))
+                                            } catch (_: Exception) {}
+                                        }
+                                    }
+                                    LinkType.USER, LinkType.EXTERNAL -> {
+                                        try {
+                                            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(link.url)))
+                                        } catch (_: Exception) {}
+                                    }
+                                }
+                            },
+                            onImageClick = { url -> fullScreenImageUrl = url },
+                            onProfileClick = { userId, userName ->
+                                if (isPublicChat) {
+                                    // В игровом чате у автора есть только ID пользователя, а не чат с ним
+                                    if (userId.isNotBlank() && userId != "0") {
+                                        navController.navigate("user/$userId/${Uri.encode(userName.ifBlank { "Профиль" })}")
+                                    }
+                                } else if (chatId.isNotBlank()) {
+                                    navController.navigate("profile/$chatId/${Uri.encode(username)}")
+                                }
+                            },
+                            otherUserId = chatId,
+                            otherUsername = username,
+                            replyAuthor = row.replyAuthor,
+                            onReplyQuoteClick = row.replyTargetId?.let { targetId ->
+                                {
+                                    val idx = rowIndexOfMessageId(targetId)
+                                    if (idx >= 0) scope.launch {
+                                        try { listState.animateScrollToItem(idx, -200) } catch (_: Exception) {}
+                                        flashMessageId = targetId
+                                        delay(900)
+                                        if (flashMessageId == targetId) flashMessageId = null
+                                    }
+                                }
+                            },
+                            isFlashing = flashMessageId == msg.id,
+                            onRetrySend = if (msg.sendState == 2) ({ retryPending(msg.id) }) else null
+                        )
+                    }
+                }
+            }
+
+            val showScrollDown by remember {
+                derivedStateOf {
+                    val total = listState.layoutInfo.totalItemsCount
+                    val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                    total > 0 && lastVisible < total - 3
+                }
+            }
+            Box(Modifier.fillMaxSize().padding(bottom = inputBarDp)) {
+                ChatFloatingOverlays(
+                    showDate = showFloatingDate && floatingDate != null,
+                    dateText = floatingDate.orEmpty(),
+                    showScrollDown = showScrollDown && !isSelectionMode,
+                    palette = palette,
+                    theme = theme,
+                    onScrollDown = {
+                        scope.launch { try { listState.animateScrollToItem(lastRowIndex()) } catch (_: Exception) {} }
+                    }
+                )
+            }
+
+        var validationError by remember { mutableStateOf<String?>(null) }
+        LaunchedEffect(inputText) {
+            val lines = inputText.split("\n")
+            val hasLongWord = inputText.split(Regex("\\s+")).any { !it.startsWith("http") && it.length > 160 }
+            validationError = when {
+                inputText.length > 2000 -> "Лимит 2000 символов!"
+                lines.size > 20 -> "Лимит 20 строк!"
+                hasLongWord -> "Слово > 160 символов!"
+                else -> null
+            }
+        }
+
+
+        // ===== Плавающая нижняя панель: ответ + поле ввода, без своей подложки =====
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .onSizeChanged { inputBarHeightPx = it.height }
+        ) {
+        // Ошибка отправки от FunPay. «Не можете писать в этот чат» висит, пока не закроют, остальное само уходит.
+        LaunchedEffect(sendError) {
+            val e = sendError ?: return@LaunchedEffect
+            if (!e.contains("не можете писать", ignoreCase = true)) {
+                delay(7000)
+                if (sendError == e) sendError = null
+            }
+        }
+        AnimatedVisibility(
+            visible = sendError != null,
+            enter = expandVertically(tween(180)) + fadeIn(tween(180)),
+            exit = shrinkVertically(tween(150)) + fadeOut(tween(120))
+        ) {
+            SendErrorBar(
+                text = sendError.orEmpty(),
+                hint = if (sendError?.contains("не можете писать", true) == true && GameChatsRegistry.isSystemChatId(chatId))
+                    "Это ограничение FunPay для вашего аккаунта, на сайте будет так же" else null,
+                palette = palette,
+                onClose = { sendError = null }
+            )
+        }
+        // «Вставить картинку из буфера»: когда пользователь в поле ввода и в буфере есть изображение
+        AnimatedVisibility(
+            visible = inputFocused && clipImageStamp != null && clipImageStamp != usedClipStamp && !showStickers,
+            enter = expandVertically(tween(180)) + fadeIn(tween(180)),
+            exit = shrinkVertically(tween(150)) + fadeOut(tween(120))
+        ) {
+            ClipboardPasteChip(
+                palette = palette,
+                onPaste = { pasteClipboardImage() },
+                onClose = { usedClipStamp = clipImageStamp }
+            )
+        }
+        AnimatedVisibility(
+            visible = replyToMessage != null,
+            enter = expandVertically(tween(180)) + fadeIn(tween(180)),
+            exit = shrinkVertically(tween(150)) + fadeOut(tween(120))
+        ) {
+            replyToMessage?.let { reply ->
+                ReplyComposerBar(
+                    author = if (reply.isMe) "Вам" else reply.author.takeIf { it.isNotBlank() && it != "Unknown" && !reply.isSystem } ?: username,
+                    text = reply.text,
+                    palette = palette,
+                    onClose = { replyToMessage = null }
+                )
+            }
+        }
+
+        // ===== Поле ввода в стиле Telegram: "пилюля" + круглая кнопка отправки =====
+        val inputPill = if (palette.isLight) Color.White else ThemeManager.dialogSurface(theme)
+        val iconTint = palette.secondary
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 8.dp)
+        ) {
+            AnimatedVisibility(visible = validationError != null) {
+                Text(
+                    text = validationError.orEmpty(),
+                    color = Color(0xFFE53935),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(start = 16.dp, bottom = 4.dp)
+                )
+            }
+            Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 48.dp)
+                        .shadow(1.5.dp, RoundedCornerShape(24.dp), clip = true)
+                        .background(inputPill),
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    // слева — шаблоны (как кнопка эмодзи в Telegram)
+                    Box {
+                        IconButton(onClick = { showTemplatesMenu = true }, modifier = Modifier.size(48.dp)) {
+                            Icon(Icons.Default.ShortText, contentDescription = "Шаблоны", tint = iconTint)
+                        }
+                        DropdownMenu(
+                                                    expanded = showTemplatesMenu,
+                                                    onDismissRequest = { showTemplatesMenu = false },
+                                                    modifier = Modifier.background(ThemeManager.dialogSurface(theme))
+                                                ) {
+                                                    val templates = repository.getMessageTemplates()
+                                                    val templateSettings = repository.getTemplateSettings()
+
+                                                    if (templates.isEmpty()) {
+                                                        DropdownMenuItem(
+                                                            text = { Text("Нет шаблонов", color = ThemeManager.parseColor(theme.textSecondaryColor)) },
+                                                            onClick = { showTemplatesMenu = false }
+                                                        )
+                                                    } else {
+                                                        templates.forEach { template ->
+                                                            DropdownMenuItem(
+                                                                text = {
+                                                                    Column {
+                                                                        Text(
+                                                                            template.name,
+                                                                            color = ThemeManager.parseColor(theme.textPrimaryColor),
+                                                                            fontWeight = FontWeight.Bold,
+                                                                            fontSize = 13.sp
+                                                                        )
+                                                                        Text(
+                                                                            template.text,
+                                                                            color = ThemeManager.parseColor(theme.textSecondaryColor),
+                                                                            fontSize = 11.sp,
+                                                                            maxLines = 1,
+                                                                            overflow = TextOverflow.Ellipsis
+                                                                        )
+                                                                    }
+                                                                },
+                                                                onClick = {
+                                                                    val finalText = processTemplateVariables(template.text, username)
+
+                                                                    if (templateSettings.sendImmediately) {
+                                                                        if (finalText.isNotBlank()) {
+                                                                            val newMessage = MessageItem(
+                                                                                id = System.currentTimeMillis().toString(),
+                                                                                author = "Вы",
+                                                                                text = finalText,
+                                                                                isMe = true,
+                                                                                time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()),
+                                                                                imageUrl = null
+                                                                            )
+                                                                            messages = messages + newMessage
+                                                                            val _otherUid = chatId.removePrefix("users-").split("-").firstOrNull() ?: ""
+                                                                            parsedMessages = parseMessagesFromRepository(messages, repository, _otherUid)
+                                                                            previousMessageCount = messages.size
+                                                                            scope.launch {
+                                                                                if (allMessages.isNotEmpty()) {
+                                                                                    try { listState.scrollToItem(lastRowIndex()) } catch (e: Exception) { }
+                                                                                }
+                                                                            }
+                                                                        }
+
+                                                                        FunPayRepository.lastOutgoingMessages[chatId] = if (finalText.isNotBlank()) finalText.trim() else "__image__"
+                                                                        scope.launch {
+                                                                            val ok = repository.sendWithOptionalImage(chatId, FptMark.sign(finalText), template.imageUri, template.imageFirst)
+                                                                            if (!ok) {
+                                                                                sendError = repository.lastSendError ?: "Шаблон не отправлен"
+                                                                            } else if (repository.getReadMarkSettings().markAfterManualReply) {
+                                                                                repository.markChatAsRead(chatId)
+                                                                            }
+                                                                        }
+                                                                    } else {
+                                                                        inputText = finalText
+                                                                    }
+                                                                    showTemplatesMenu = false
+                                                                }
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .heightIn(min = 48.dp)
+                            .padding(vertical = 12.dp),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (inputText.isEmpty()) {
+                            Text("Сообщение", color = iconTint, fontSize = 16.sp)
+                        }
+                        androidx.compose.foundation.text.BasicTextField(
+                            value = inputText,
+                            onValueChange = { inputText = it },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(inputFocus)
+                                .onFocusChanged {
+                                    inputFocused = it.isFocused
+                                    if (it.isFocused) {
+                                        checkClipboardImage()
+                                        if (showStickers) pendingKeyboard = true
+                                    }
+                                }
+                                .contentReceiver(receiveContentListener),
+                            textStyle = androidx.compose.ui.text.TextStyle(color = palette.text, fontSize = 16.sp, lineHeight = 21.sp),
+                            cursorBrush = androidx.compose.ui.graphics.SolidColor(palette.accent),
+                            maxLines = 6
+                        )
+                    }
+                    // AI-переписывание
+                    IconButton(
+                        onClick = {
+                                                            if (inputText.isNotBlank() && !isAiProcessing && validationError == null) {
+                                                                val isPro = LicenseManager.isProActive()
+                                                                if (!isPro && !LicenseManager.consumeAiClick()) {
+                                                                    showAiLimit = true
+                                                                    return@IconButton
+                                                                }
+                                                                isAiProcessing = true
+                                                                scope.launch {
+                                                                    val contextHistory = messages.takeLast(10).joinToString("\n") {
+                                                                        "${if(it.isMe) "Продавец" else "Покупатель"}: ${it.text}"
+                                                                    }
+                                                                    val aiChat = ChatItem(id = chatId, username = username, lastMessage = messages.lastOrNull { !it.isMe }?.text ?: "", isUnread = false, avatarUrl = "", date = "")
+                                                                    val rewrited = repository.rewriteMessage(inputText, contextHistory, chat = aiChat)
+                                                                    if (!rewrited.isNullOrEmpty()) {
+                                                                        inputText = rewrited
+                                                                    }
+                                                                    isAiProcessing = false
+                                                                }
+                                                            }
+                                                        },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        if (isAiProcessing) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp), color = palette.accent, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.AutoAwesome, contentDescription = "AI", tint = palette.accent)
+                        }
+                    }
+                    // стикеры ↔ клавиатура, как кнопка эмодзи в Telegram
+                    IconButton(
+                        onClick = {
+                            if (showStickers) {
+                                pendingKeyboard = true
+                                try { inputFocus.requestFocus() } catch (_: Exception) {}
+                                keyboardController?.show()
+                            } else {
+                                showStickers = true
+                                focusManager.clearFocus()
+                                keyboardController?.hide()
+                            }
+                        },
+                        modifier = Modifier.size(44.dp)
+                    ) {
+                        Crossfade(targetState = showStickers, animationSpec = tween(160), label = "stkBtn") { open ->
+                            Icon(
+                                if (open) Icons.Default.Keyboard else StickerIcon,
+                                contentDescription = if (open) "Клавиатура" else "Стикеры",
+                                tint = if (open) palette.accent else iconTint
+                            )
+                        }
+                    }
+                    // скрепка — фото
+                    IconButton(
+                        onClick = { photoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(Icons.Default.AttachFile, contentDescription = "Фото", tint = iconTint, modifier = Modifier.graphicsLayer { rotationZ = 45f })
+                    }
+                }
+
+                Spacer(Modifier.width(6.dp))
+
+                val canSend = inputText.isNotBlank() && validationError == null
+                val sendScale by animateFloatAsState(if (canSend) 1f else 0.9f, spring(dampingRatio = 0.55f), label = "sendScale")
+                Box(
+                    modifier = Modifier
+                        .size(48.dp)
+                        .graphicsLayer { scaleX = sendScale; scaleY = sendScale }
+                        .clip(CircleShape)
+                        .background(if (canSend) palette.accent else palette.accent.copy(alpha = 0.45f))
+                        .clickable(enabled = canSend, onClick = {
+                                                    if (inputText.isNotBlank() && validationError == null) {
+                                                        // Если FunPay откажет, вернём текст и ответ в поле ввода
+                                                        val typedBefore = inputText
+                                                        val replyBefore = replyToMessage
+                                                        val textToSend = if (replyToMessage != null) {
+                                                            // Тот же формат, что у расширения FunPay Tools: цитата целиком в одну строку
+                                                            val src = replyToMessage!!
+                                                            val preview = src.text.replace(Regex("\\s+"), " ").trim()
+                                                                .ifEmpty { if (src.imageUrl != null) "Изображение" else "Сообщение" }
+                                                                .let { if (it.length > 300) it.take(300) + "…" else it }
+                                                            "╭─ ⤸ $preview\n╰ ${inputText.trim()}"
+                                                        } else {
+                                                            inputText
+                                                        }
+                                                        replyToMessage = null
+                                                        inputText = ""
+
+                                                        val newMessage = MessageItem(
+                                                            id = System.currentTimeMillis().toString(),
+                                                            author = "Вы",
+                                                            text = textToSend,
+                                                            isMe = true,
+                                                            time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date()),
+                                                            imageUrl = null
+                                                        )
+                                                        messages = messages + newMessage
+                                                        val _otherUid = chatId.removePrefix("users-").split("-").firstOrNull() ?: ""
+                                                        parsedMessages = parseMessagesFromRepository(messages, repository, _otherUid)
+                                                        previousMessageCount = messages.size
+                                                        scope.launch {
+                                                            if (allMessages.isNotEmpty()) {
+                                                                try { listState.scrollToItem(lastRowIndex()) } catch (e: Exception) { }
+                                                            }
+                                                        }
+                                                        scope.launch {
+                                                            val sentOk = repository.sendMessage(chatId, FptMark.sign(textToSend))
+                                                            if (!sentOk) {
+                                                                // Убираем «отправленное» сообщение и показываем, почему FunPay не принял
+                                                                messages = messages.filter { it.id != newMessage.id }
+                                                                val uidLocal = chatId.removePrefix("users-").split("-").firstOrNull() ?: ""
+                                                                parsedMessages = parseMessagesFromRepository(messages, repository, uidLocal)
+                                                                previousMessageCount = messages.size
+                                                                if (inputText.isEmpty()) {
+                                                                    inputText = typedBefore
+                                                                    replyToMessage = replyBefore
+                                                                }
+                                                                sendError = repository.lastSendError ?: "Сообщение не отправлено"
+                                                            } else {
+                                                                sendError = null
+                                                                if (repository.getReadMarkSettings().markAfterManualReply) {
+                                                                    repository.markChatAsRead(chatId)
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "Отправить", tint = Color.White, modifier = Modifier.size(22.dp).offset(x = 2.dp))
+                }
+            }
+        }
+        } // плавающая нижняя панель
+        } // список + поле ввода
+
+        // Стикер уходит в FunPay обычной картинкой PNG; в чате появляется сразу
+        fun sendSticker(pack: StickerPack, item: StickerItem) {
+            StickerStore.addRecent(context, pack, item)
+            // Превью уже в кеше, поэтому стикер появляется мгновенно
+            enqueueMedia(listOf(Triple(StickerStore.fullUrl(pack, item), pack to item, null)))
+        }
+
+        // Место под клавиатуру или панель стикеров. Высота общая, поэтому переключение без прыжка.
+        val bottomAreaDp = with(chatDensity) { bottomAreaPx().toDp() }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(bottomAreaDp)
+        ) {
+            val panelAlpha by animateFloatAsState(if (showStickers) 1f else 0f, tween(180), label = "stkPanel")
+            if (showStickers || panelAlpha > 0.01f) {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            alpha = panelAlpha
+                            translationY = (1f - panelAlpha) * 48.dp.toPx()
+                        }
+                ) {
+                    StickerPanel(
+                        height = with(chatDensity) { panelHeightPx.toDp() },
+                        palette = palette,
+                        theme = theme,
+                        onSend = { pack, item -> sendSticker(pack, item) }
+                    )
+                    Spacer(Modifier.fillMaxWidth().height(with(chatDensity) { navInsets.getBottom(chatDensity).toDp() }))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun FullScreenImageDialog(imageUrl: String, repository: FunPayRepository, theme: AppTheme, onDismiss: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    var showCopyMenu by remember { mutableStateOf(false) }
+    var isDownloading by remember { mutableStateOf(false) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+        ) {
+
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = null,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable { onDismiss() },
+                contentScale = ContentScale.Fit
+            )
+
+
+            IconButton(
+                onClick = onDismiss,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .padding(16.dp)
+                    .background(Color.Black.copy(alpha = 0.3f), CircleShape)
+            ) {
+                Icon(Icons.Default.Close, null, tint = Color.White)
+            }
+
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Color.Transparent, Color.Black.copy(alpha = 0.9f))
+                        )
+                    )
+                    .navigationBarsPadding()
+                    .padding(bottom = 48.dp, top = 24.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+
+                    Box {
+                        Button(
+                            onClick = { showCopyMenu = true },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.dialogSurface(theme)),
+                            enabled = !isDownloading
+                        ) {
+                            Icon(Icons.Default.ContentCopy, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Копировать", color = ThemeManager.parseColor(theme.textPrimaryColor))
+                        }
+
+                        DropdownMenu(
+                            expanded = showCopyMenu,
+                            onDismissRequest = { showCopyMenu = false },
+                            modifier = Modifier.background(ThemeManager.dialogSurface(theme))
+                        ) {
+
+                            DropdownMenuItem(
+                                text = { Text("Ссылку", color = ThemeManager.parseColor(theme.textPrimaryColor)) },
+                                onClick = {
+                                    val clip = ClipData.newPlainText("Image URL", imageUrl)
+                                    clipboardManager.setPrimaryClip(clip)
+                                    Toast.makeText(context, "Ссылка скопирована", Toast.LENGTH_SHORT).show()
+                                    showCopyMenu = false
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Link, null, tint = ThemeManager.parseColor(theme.accentColor))
+                                }
+                            )
+
+                            DropdownMenuItem(
+                                text = { Text("Изображение", color = ThemeManager.parseColor(theme.textPrimaryColor)) },
+                                onClick = {
+                                    showCopyMenu = false
+                                    isDownloading = true
+                                    scope.launch {
+                                        try {
+
+                                            val bytes = withContext(Dispatchers.IO) {
+                                                val req = Request.Builder().url(imageUrl).build()
+                                                repository.repoClient.newCall(req).execute().body?.bytes()
+                                            }
+                                            if (bytes != null && PlatformBridge.setClipboardImage(bytes)) {
+                                                Toast.makeText(context, "Изображение скопировано", Toast.LENGTH_SHORT).show()
+                                            } else {
+                                                Toast.makeText(context, "Не удалось скопировать", Toast.LENGTH_SHORT).show()
+                                            }
+                                        } catch (e: Exception) {
+                                            Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        } finally {
+                                            isDownloading = false
+                                        }
+                                    }
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Image, null, tint = ThemeManager.parseColor(theme.accentColor))
+                                }
+                            )
+                        }
+                    }
+
+
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                isDownloading = true
+                                val success = repository.downloadAndSaveImage(imageUrl)
+                                Toast.makeText(
+                                    context,
+                                    if (success) "Сохранено в галерею" else "Ошибка сохранения",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                                isDownloading = false
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor)),
+                        enabled = !isDownloading
+                    ) {
+                        if (isDownloading) {
+                            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                        } else {
+                            Icon(Icons.Default.Download, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Сохранить")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OptimizedMessageBubble(
+    message: ParsedMessage,
+    theme: AppTheme,
+    selectionKey: Int,
+    isSelected: Boolean = false,
+    isSelectionMode: Boolean = false,
+    isSearchHighlight: Boolean = false,
+    searchQuery: String = "",
+    onLongPress: () -> Unit = {},
+    onTap: () -> Unit = {},
+    onReply: () -> Unit = {},
+    onSwipeReply: () -> Unit = {},
+    translatedText: String? = null,
+    onLinkClick: (MessageLink) -> Unit,
+    onImageClick: (String) -> Unit,
+    onProfileClick: (userId: String, username: String) -> Unit = { _, _ -> },
+    otherUserId: String = "",
+    otherUsername: String = ""
+) {
+    if (message.isSystem) {
+        val isSupport = message.badge?.contains("поддержка", true) == true ||
+                message.badge?.contains("арбитраж", true) == true
+        val badgeColor = if (isSupport) Color(0xFF66BB6A) else ThemeManager.parseColor(theme.accentColor)
+        val containerColor = if (isSupport) Color(0xFF1B5E20).copy(alpha = 0.6f)
+        else ThemeManager.parseColor(theme.surfaceColor).copy(alpha = 0.5f)
+
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(containerColor)) {
+            Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(
+                        if (isSupport) Icons.Default.Security else Icons.Default.Info,
+                        null, tint = badgeColor, modifier = Modifier.size(18.dp)
+                    )
+                    Text(
+                        message.badge?.uppercase() ?: if (message.author == "FunPay") "FUNPAY" else "СИСТЕМА",
+                        fontSize = 11.sp, fontWeight = FontWeight.Bold, color = badgeColor, letterSpacing = 1.sp
+                    )
+                }
+                Spacer(Modifier.height(8.dp))
+                MessageTextWithLinks(
+                    text = message.text, links = message.links,
+                    textColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                    linkColor = badgeColor, selectionKey = selectionKey, onLinkClick = onLinkClick,
+                    selectionEnabled = isSelected && isSelectionMode
+                )
+                if (message.time.isNotEmpty()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(message.time, fontSize = 10.sp, color = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.7f))
+                }
+            }
+        }
+        return
+    }
+
+    val isIncoming = !message.isMe
+    val accentColor = ThemeManager.parseColor(theme.accentColor)
+    val isLong = message.text.length > 500
+    var expanded by remember { mutableStateOf(false) }
+
+    val profileUserId = if (isIncoming) (message.authorUserId ?: otherUserId) else ""
+    val profileName = when {
+        !isIncoming -> ""
+        !message.authorUserId.isNullOrBlank() && message.authorUserId != otherUserId && message.author.isNotBlank() -> message.author
+        otherUsername.isNotEmpty() -> otherUsername
+        else -> message.author
+    }
+
+
+    val rowBg = when {
+        isSelected -> accentColor.copy(alpha = 0.18f)
+        isSearchHighlight -> Color(0xFFFFEB3B).copy(alpha = 0.12f)
+        else -> Color.Transparent
+    }
+
+    val density = LocalDensity.current
+    var swipeOffset by remember(message.id) { mutableStateOf(0f) }
+    val animatedOffset by animateFloatAsState(targetValue = swipeOffset, label = "swipeReply")
+    val swipeTriggerPx = with(density) { 64.dp.toPx() }
+    val swipeMaxPx = with(density) { 120.dp.toPx() }
+    val swipeReplyState = rememberUpdatedState(onSwipeReply)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(rowBg, RoundedCornerShape(8.dp))
+            .pointerInput(message.id, isSelectionMode, isSelected) {
+                if (isSelectionMode && isSelected) {
+                    detectTapGestures(onTap = { onTap() })
+                } else {
+                    detectTapGestures(
+                        onLongPress = { onLongPress() },
+                        onTap = { onTap() }
+                    )
+                }
+            }
+            .pointerInput(message.id) {
+                awaitEachGesture {
+                    awaitFirstDown(requireUnconsumed = false)
+                    var totalDx = 0f
+                    var totalDy = 0f
+                    var locked = false
+                    var triggered = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: break
+                        if (!change.pressed) {
+                            if (swipeOffset < -swipeTriggerPx && !triggered) {
+                                triggered = true
+                                swipeReplyState.value()
+                            }
+                            swipeOffset = 0f
+                            break
+                        }
+                        val dx = change.position.x - change.previousPosition.x
+                        val dy = change.position.y - change.previousPosition.y
+                        totalDx += dx
+                        totalDy += dy
+                        if (!locked) {
+                            if (abs(totalDy) > 12f && abs(totalDy) > abs(totalDx)) {
+
+                                break
+                            }
+                            if (totalDx < -12f && abs(totalDx) > abs(totalDy) * 1.3f) {
+                                locked = true
+                            }
+                        }
+                        if (locked) {
+                            swipeOffset = (swipeOffset + dx).coerceIn(-swipeMaxPx, 0f)
+                            change.consume()
+                        }
+                    }
+                }
+            }
+            .offset { IntOffset(animatedOffset.toInt(), 0) },
+        horizontalArrangement = if (message.isMe) Arrangement.End else Arrangement.Start,
+        verticalAlignment = Alignment.Bottom
+    ) {
+
+        if (isSelected || true) {
+
+        }
+
+        Column(
+            horizontalAlignment = if (message.isMe) Alignment.End else Alignment.Start
+        ) {
+            if (isIncoming && profileName.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .padding(start = 4.dp, bottom = 2.dp)
+                        .clickable(enabled = profileUserId.isNotEmpty()) {
+                            onProfileClick(profileUserId, profileName)
+                        }
+                ) {
+                    EpicNicknameText(
+                        text = profileName,
+                        style = LocalTextStyle.current.copy(fontSize = 11.sp, color = accentColor)
+                    )
+                    Spacer(Modifier.width(3.dp))
+                    Icon(Icons.Default.AccountCircle, null, tint = accentColor.copy(alpha = 0.5f), modifier = Modifier.size(10.dp))
+                }
+            }
+
+            Box(modifier = Modifier.widthIn(max = 280.dp).clip(RoundedCornerShape(
+                topStart = if (message.isMe) 16.dp else 4.dp,
+                topEnd = if (message.isMe) 4.dp else 16.dp,
+                bottomStart = 16.dp, bottomEnd = 16.dp
+            )).background(if (message.isMe)
+                ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.2f)
+            else ThemeManager.parseColor(theme.surfaceColor))) {
+                Column(
+                    modifier = Modifier.width(IntrinsicSize.Max).padding(12.dp).animateContentSize()
+                ) {
+                    if (message.imageUrl != null) {
+                        AsyncImage(
+                            model = message.imageUrl, contentDescription = null,
+                            modifier = Modifier
+                                .widthIn(min = 200.dp)
+                                .fillMaxWidth()
+                                .height(150.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { onImageClick(message.imageUrl) },
+                            contentScale = ContentScale.Crop
+                        )
+                        if (message.text.isNotEmpty()) Spacer(Modifier.height(8.dp))
+                    }
+                    if (message.text.isNotEmpty()) {
+
+                        if (isSearchHighlight && searchQuery.isNotEmpty()) {
+                            HighlightedText(
+                                text = message.text,
+                                highlight = searchQuery,
+                                textColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                highlightColor = Color(0xFFFFEB3B),
+                                maxLines = if (isLong && !expanded) 8 else Int.MAX_VALUE
+                            )
+                        } else {
+                            MessageTextWithLinks(
+                                text = message.text, links = message.links,
+                                textColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                linkColor = ThemeManager.parseColor(theme.accentColor),
+                                selectionKey = selectionKey, onLinkClick = onLinkClick,
+                                maxLines = if (isLong && !expanded) 8 else Int.MAX_VALUE,
+                                selectionEnabled = isSelected && isSelectionMode
+                            )
+                        }
+                        if (isLong) {
+                            Spacer(Modifier.height(4.dp))
+                            Text(
+                                if (expanded) "Свернуть" else "Читать ещё",
+                                fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                                color = ThemeManager.parseColor(theme.accentColor),
+                                modifier = Modifier.clickable { expanded = !expanded }
+                            )
+                        }
+                        if (translatedText != null) {
+                            HorizontalDivider(
+                                color = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.2f),
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                            Text(
+                                text = "🌐 $translatedText",
+                                fontSize = 13.sp,
+                                color = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.85f),
+                                lineHeight = 18.sp,
+                                fontStyle = FontStyle.Italic
+                            )
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (message.time.isNotEmpty()) {
+                            Text(
+                                message.time, fontSize = 10.sp,
+                                color = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.7f)
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { onReply() }
+                                .padding(2.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Reply, null,
+                                tint = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.5f),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun HighlightedText(
+    text: String,
+    highlight: String,
+    textColor: Color,
+    highlightColor: Color,
+    maxLines: Int = Int.MAX_VALUE
+) {
+    val annotated = buildAnnotatedString {
+        var start = 0
+        val lower = text.lowercase()
+        val lowerHighlight = highlight.lowercase()
+        while (true) {
+            val idx = lower.indexOf(lowerHighlight, start)
+            if (idx < 0) {
+                append(text.substring(start))
+                break
+            }
+            append(text.substring(start, idx))
+            withStyle(SpanStyle(background = highlightColor, color = Color.Black)) {
+                append(text.substring(idx, idx + highlight.length))
+            }
+            start = idx + highlight.length
+        }
+    }
+    Text(
+        text = annotated,
+        fontSize = 14.sp,
+        color = textColor,
+        lineHeight = 20.sp,
+        maxLines = maxLines,
+        overflow = if (maxLines < Int.MAX_VALUE) TextOverflow.Ellipsis else TextOverflow.Clip
+    )
+}
+
+@Composable
+fun MessageTextWithLinks(
+    text: String,
+    links: List<MessageLink>,
+    textColor: Color,
+    linkColor: Color,
+    selectionKey: Int,
+    onLinkClick: (MessageLink) -> Unit,
+    maxLines: Int = Int.MAX_VALUE,
+    selectionEnabled: Boolean = true,
+    /** Невидимый хвост под время внутри пузыря (как в Telegram). */
+    trailingSpacer: String = "",
+    fontSize: Float = 14f,
+    centered: Boolean = false,
+    boldLinks: Boolean = false
+) {
+    val annotatedString = buildAnnotatedString {
+        if (links.isEmpty()) {
+            append(text)
+        } else {
+            var currentIndex = 0
+            links.sortedBy { text.indexOf(it.text, currentIndex) }.forEach { link ->
+                val linkIndex = text.indexOf(link.text, currentIndex)
+                if (linkIndex >= currentIndex) {
+                    if (linkIndex > currentIndex) {
+                        append(text.substring(currentIndex, linkIndex))
+                    }
+                    pushStringAnnotation(tag = "LINK", annotation = link.url)
+                    withStyle(style = SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline, fontWeight = if (boldLinks) FontWeight.SemiBold else null)) {
+                        append(link.text)
+                    }
+                    pop()
+                    currentIndex = linkIndex + link.text.length
+                }
+            }
+            if (currentIndex < text.length) {
+                append(text.substring(currentIndex))
+            }
+        }
+        if (trailingSpacer.isNotEmpty()) {
+            withStyle(SpanStyle(color = Color.Transparent, fontSize = 11.sp)) { append(trailingSpacer) }
+        }
+    }
+
+    val layoutResult = remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    val textComposable: @Composable () -> Unit = {
+        Text(
+            text = annotatedString,
+            style = LocalTextStyle.current.copy(
+                fontSize = fontSize.sp,
+                color = textColor,
+                lineHeight = (fontSize + 6f).sp,
+                textAlign = if (centered) TextAlign.Center else TextAlign.Start
+            ),
+            maxLines = maxLines,
+            overflow = if (maxLines < Int.MAX_VALUE) TextOverflow.Ellipsis else TextOverflow.Clip,
+            onTextLayout = { layoutResult.value = it },
+            modifier = Modifier.pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    layoutResult.value?.let { layout ->
+                        val position = layout.getOffsetForPosition(offset)
+                        annotatedString.getStringAnnotations(tag = "LINK", start = position, end = position)
+                            .firstOrNull()?.let { annotation ->
+                                links.find { it.url == annotation.item }?.let(onLinkClick)
+                            }
+                    }
+                }
+            }
+        )
+    }
+
+    if (selectionEnabled) {
+        key(selectionKey) {
+            SelectionContainer { textComposable() }
+        }
+    } else {
+        textComposable()
+    }
+}
+
+fun parseMessagesFromRepository(messages: List<MessageItem>, repository: FunPayRepository, otherUserId: String = ""): List<ParsedMessage> {
+    return messages.map { raw ->
+        val replyMatch = REPLY_FORMAT.find(raw.text)
+        val msg = if (replyMatch != null) raw.copy(text = replyMatch.groupValues[2]) else raw
+        val isSystemMsg = msg.badge != null || msg.author == "FunPay"
+
+        val isAdminMsg = msg.badge == "поддержка" || msg.badge == "арбитраж"
+
+        val links = mutableListOf<MessageLink>()
+
+        val orderRegex = Regex("(?i)(заказ[а-яА-Я]*\\s*#([A-Z0-9]+))")
+        orderRegex.findAll(msg.text).forEach { match ->
+            val fullMatch = match.groupValues[1]
+            val orderId = match.groupValues[2]
+            links.add(MessageLink(fullMatch, "https://funpay.com/orders/$orderId/", LinkType.ORDER))
+        }
+
+        val urlRegex = Regex("https?://[^\\s]+")
+        urlRegex.findAll(msg.text).forEach { match ->
+            val url = match.value
+            val linkType = when {
+                url.contains("/orders/") -> LinkType.ORDER
+                url.contains("/lots/offer") || url.contains("/chips/offer") -> LinkType.LOT
+                url.contains("/users/") -> LinkType.USER
+                else -> LinkType.EXTERNAL
+            }
+            links.add(MessageLink(url, url, linkType))
+        }
+
+        ParsedMessage(
+            id = msg.id,
+            author = msg.author,
+            text = msg.text,
+            isMe = msg.isMe,
+            time = msg.time,
+            imageUrl = msg.imageUrl,
+            isSystem = isSystemMsg,
+            isAdmin = isAdminMsg,
+            badge = msg.badge,
+            links = links,
+
+
+            authorUserId = when {
+                msg.isMe || isSystemMsg -> null
+                !msg.authorId.isNullOrBlank() && msg.authorId != "0" -> msg.authorId
+                otherUserId.isNotEmpty() -> otherUserId
+                else -> null
+            },
+            authorAvatarUrl = msg.authorAvatarUrl,
+            replyQuote = replyMatch?.groupValues?.get(1)?.trim()
+        )
+    }
+}
+
+@Composable
+fun ConsoleView(logs: List<Pair<String, Boolean>>, theme: AppTheme, navController: NavController) {
+    val context = LocalContext.current
+    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+    var onlineCount by remember { mutableStateOf(FakeOnlineCounter.getNow()) }
+
+    LaunchedEffect(Unit) {
+        
+        
+        while (true) {
+            onlineCount = FakeOnlineCounter.tick()
+            delay(1000)
+        }
+    }
+
+    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(theme.borderRadius.dp))
+                .background(ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.2f))
+                .padding(12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("👥 Онлайн:", fontSize = 14.sp, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "$onlineCount",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = ThemeManager.parseColor(theme.accentColor)
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Canvas(modifier = Modifier.size(8.dp)) { drawCircle(color = Color.Red) }
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("LIVE", fontSize = 10.sp, color = Color.Red, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = { navController.navigate("donations") },
+            modifier = Modifier.fillMaxWidth().height(46.dp),
+            shape = RoundedCornerShape(theme.borderRadius.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.2f)
+            )
+        ) {
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                if (LicenseManager.isProActive()) "💎 PRO активен" else "🔑 Активировать PRO",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LazyColumn(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(theme.borderRadius.dp))
+                .background(ThemeManager.parseColor(theme.surfaceColor))
+                .padding(12.dp),
+            reverseLayout = false
+        ) {
+            items(logs) { (log, isError) ->
+                Text(
+                    text = log,
+                    color = if (isError) Color(0xFFB01818) else ThemeManager.parseColor(theme.textPrimaryColor),
+                    fontSize = 10.sp,
+                    lineHeight = 12.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+                HorizontalDivider(color = Color.White.copy(alpha = 0.1f), thickness = 0.5.dp)
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    try {
+                        val fullLog = logs.take(500).joinToString("\n\n") { it.first }
+                        val clip = ClipData.newPlainText("FunPay Logs", fullLog)
+                        clipboardManager.setPrimaryClip(clip)
+                        Toast.makeText(context, "Скопировано (последние 500)", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) { Toast.makeText(context, "Ошибка: ${e.message}", Toast.LENGTH_SHORT).show() }
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ThemeManager.dialogSurface(theme),
+                    contentColor = ThemeManager.parseColor(theme.accentColor)
+                ),
+                border = BorderStroke(1.dp, ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.35f))
+            ) { Text("КОПИРОВАТЬ", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+            Button(
+                onClick = {
+                    val path = LogManager.saveLogsToFile(context)
+                    Toast.makeText(context, path, Toast.LENGTH_LONG).show()
+                },
+                modifier = Modifier.weight(1f),
+                colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor), contentColor = Color.White)
+            ) { Text("В ФАЙЛ", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) }
+        }
+    }
+}
+
+@Composable
+fun OrderScreen(orderId: String, repository: FunPayRepository, theme: AppTheme, navController: NavController) {
+    val scope = rememberCoroutineScope()
+    var showConfirmOrderDialog by remember { mutableStateOf(false) }
+    var orderDetails by remember { mutableStateOf<OrderDetails?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var showRefundDialog by remember { mutableStateOf(false) }
+
+
+    var showReviewReplyDialog by remember { mutableStateOf(false) }
+    var showDeleteReplyDialog by remember { mutableStateOf(false) }
+    var replyText by remember { mutableStateOf("") }
+
+
+    var showWriteReviewDialog by remember { mutableStateOf(false) }
+    var showDeleteMyReviewDialog by remember { mutableStateOf(false) }
+    var myReviewText by remember { mutableStateOf("") }
+    var myReviewRating by remember { mutableIntStateOf(5) }
+
+    val context = LocalContext.current
+
+    LaunchedEffect(orderId) {
+        isLoading = true
+        orderDetails = repository.getOrderDetails(orderId)
+        isLoading = false
+
+        orderDetails?.let { od ->
+            if (od.isBuyer && od.hasReview) {
+                myReviewText   = od.reviewText
+                myReviewRating = od.reviewRating
+            } else if (!od.isBuyer && od.hasReview && od.sellerReply.isNotEmpty()) {
+                replyText = od.sellerReply
+            }
+        }
+    }
+
+    if (showConfirmOrderDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmOrderDialog = false },
+            title = { Text("Подтвердить заказ", color = ThemeManager.parseColor(theme.textPrimaryColor)) },
+            text = { Text("Внимание! Отправлять деньги продавцу необходимо только после выполнения им всех обязательств. Мы уже не сможем вернуть их!") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val success = repository.confirmOrder(orderId)
+                            if (success) { orderDetails = repository.getOrderDetails(orderId) }
+                            showConfirmOrderDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                ) { Text("Всё понятно, отправить деньги") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmOrderDialog = false }) { Text("Отмена") }
+            },
+            containerColor = ThemeManager.parseColor(theme.surfaceColor)
+        )
+    }
+
+
+    if (showReviewReplyDialog) {
+        AlertDialog(
+            onDismissRequest = { showReviewReplyDialog = false },
+            title = { Text(if (orderDetails?.sellerReply?.isNotEmpty() == true) "Изменить ответ" else "Ответить на отзыв", color = ThemeManager.parseColor(theme.textPrimaryColor)) },
+            text = {
+                OutlinedTextField(
+                    value = replyText,
+                    onValueChange = { replyText = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Ваш ответ") }
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val success = repository.replyToReview(orderId, replyText, 5)
+                            if (success) { orderDetails = repository.getOrderDetails(orderId) }
+                            showReviewReplyDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                ) { Text("Отправить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showReviewReplyDialog = false }) { Text("Отмена") }
+            },
+            containerColor = ThemeManager.parseColor(theme.surfaceColor)
+        )
+    }
+
+
+    if (showDeleteReplyDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteReplyDialog = false },
+            title = { Text("Удалить ответ?", color = Color.Red) },
+            text = { Text("Вы уверены, что хотите удалить свой ответ на отзыв?") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val success = repository.deleteReviewReply(orderId)
+                            if (success) { orderDetails = repository.getOrderDetails(orderId) }
+                            showDeleteReplyDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) { Text("Удалить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteReplyDialog = false }) { Text("Отмена") }
+            },
+            containerColor = ThemeManager.parseColor(theme.surfaceColor)
+        )
+    }
+
+
+    if (showWriteReviewDialog) {
+        AlertDialog(
+            onDismissRequest = { showWriteReviewDialog = false },
+            title = {
+                Text(
+                    if (orderDetails?.hasReview == true) "Редактировать отзыв" else "Оставить отзыв",
+                    color = ThemeManager.parseColor(theme.textPrimaryColor)
+                )
+            },
+            text = {
+                Column {
+
+                    Text("Оценка:", fontSize = 12.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                    Spacer(Modifier.height(6.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        (1..5).forEach { star ->
+                            val starColor = when {
+                                star <= myReviewRating -> when (myReviewRating) {
+                                    5 -> Color(0xFF4CAF50); 4 -> Color(0xFF8BC34A)
+                                    3 -> Color(0xFFFFC107); 2 -> Color(0xFFFF9800)
+                                    else -> Color(0xFFF44336)
+                                }
+                                else -> ThemeManager.parseColor(theme.textSecondaryColor).copy(0.3f)
+                            }
+                            Icon(
+                                if (star <= myReviewRating) Icons.Default.Star else Icons.Default.StarBorder,
+                                contentDescription = null,
+                                tint = starColor,
+                                modifier = Modifier
+                                    .size(32.dp)
+                                    .clickable { myReviewRating = star }
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedTextField(
+                        value = myReviewText,
+                        onValueChange = { myReviewText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Текст отзыва") },
+                        minLines = 2
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val success = repository.writeReview(orderId, myReviewText, myReviewRating)
+                            if (success) {
+                                orderDetails = repository.getOrderDetails(orderId)
+                                orderDetails?.let {
+                                    myReviewText   = it.reviewText
+                                    myReviewRating = it.reviewRating
+                                }
+                            }
+                            showWriteReviewDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                ) { Text("Отправить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showWriteReviewDialog = false }) { Text("Отмена") }
+            },
+            containerColor = ThemeManager.parseColor(theme.surfaceColor)
+        )
+    }
+
+
+    if (showDeleteMyReviewDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteMyReviewDialog = false },
+            title = { Text("Удалить отзыв?", color = Color.Red) },
+            text = { Text("Вы уверены, что хотите удалить свой отзыв? Это действие необратимо.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val success = repository.deleteMyReview(orderId)
+                            if (success) {
+                                orderDetails = repository.getOrderDetails(orderId)
+                                myReviewText   = ""
+                                myReviewRating = 5
+                            }
+                            showDeleteMyReviewDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) { Text("Удалить") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteMyReviewDialog = false }) { Text("Отмена") }
+            },
+            containerColor = ThemeManager.parseColor(theme.surfaceColor)
+        )
+    }
+
+    if (showRefundDialog) {
+        AlertDialog(
+            onDismissRequest = { showRefundDialog = false },
+            title = { Text("Возврат средств", color = Color.Red) },
+            text = { Text("Вы уверены, что хотите вернуть деньги покупателю? Это действие необратимо.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            val success = repository.refundOrder(orderId)
+                            if (success) { orderDetails = repository.getOrderDetails(orderId) }
+                            showRefundDialog = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                ) { Text("Вернуть деньги") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showRefundDialog = false }) { Text("Отмена") }
+            },
+            containerColor = ThemeManager.parseColor(theme.surfaceColor)
+        )
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (isLoading) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = ThemeManager.parseColor(theme.accentColor))
+        } else if (orderDetails == null) {
+            Text("Не удалось загрузить заказ", modifier = Modifier.align(Alignment.Center), color = ThemeManager.parseColor(theme.textSecondaryColor))
+        } else {
+            val order = orderDetails!!
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp).verticalScroll(rememberScrollState())) {
+                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor))) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+
+                        Text(
+                            text = order.status,
+                            color = if (order.status.contains("Закрыт")) Color.Green else Color.Yellow,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Text(
+                                text = order.gameTitle,
+                                color = ThemeManager.parseColor(theme.accentColor),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 20.sp,
+                                modifier = Modifier.weight(1f).padding(end = 8.dp)
+                            )
+                            Text(
+                                text = order.price,
+                                color = ThemeManager.parseColor(theme.textPrimaryColor),
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Text(order.shortDesc, color = ThemeManager.parseColor(theme.textPrimaryColor))
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+
+                        val partnerLabel = if (order.isBuyer) "Продавец" else "Покупатель"
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.clickable(enabled = order.buyerId.isNotEmpty()) {
+                                    if (!order.isBuyer && order.buyerId.isNotEmpty()) {
+                                        val safeName = order.buyerName.replace("/", "_")
+                                        navController.navigate("buyer_history/${Uri.encode(safeName)}/${Uri.encode(order.buyerId)}")
+                                    }
+                                }
+                            ) {
+                                AsyncImage(
+                                    model = order.buyerAvatar,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(32.dp).clip(CircleShape)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    "$partnerLabel: ${order.buyerName}",
+                                    color = ThemeManager.parseColor(theme.textSecondaryColor)
+                                )
+                            }
+
+                            if (order.buyerId.isNotEmpty()) {
+                                val myUserId = repository.getMyUserId()
+                                val chatId = if (myUserId.isNotEmpty()) "users-$myUserId-${order.buyerId}" else order.buyerId
+                                Button(
+                                    onClick = { navController.navigate("chat/$chatId/${Uri.encode(order.buyerName)}") },
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.15f),
+                                        contentColor = ThemeManager.parseColor(theme.accentColor)
+                                    ),
+                                    shape = RoundedCornerShape(12.dp),
+                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                    modifier = Modifier.height(36.dp)
+                                ) {
+                                    Icon(Icons.Default.Chat, contentDescription = "Чат", modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                order.params.forEach { (key, value) ->
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                        Text(key, modifier = Modifier.weight(1f), color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 12.sp)
+                        Text(value, modifier = Modifier.weight(2f), color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 12.sp)
+                    }
+                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+
+                if (order.isBuyer) {
+
+                    if (order.hasReview) {
+                        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = 0.5f))) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    "Ваш отзыв",
+                                    color = ThemeManager.parseColor(theme.textPrimaryColor),
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(Modifier.height(4.dp))
+
+                                Row {
+                                    val starColor = when (order.reviewRating) {
+                                        5 -> Color(0xFF4CAF50); 4 -> Color(0xFF8BC34A)
+                                        3 -> Color(0xFFFFC107); 2 -> Color(0xFFFF9800)
+                                        else -> Color(0xFFF44336)
+                                    }
+                                    repeat(5) { i ->
+                                        Icon(
+                                            if (i < order.reviewRating) Icons.Default.Star else Icons.Default.StarBorder,
+                                            null, tint = if (i < order.reviewRating) starColor
+                                            else ThemeManager.parseColor(theme.textSecondaryColor).copy(0.4f),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                                if (order.reviewText.isNotEmpty()) {
+                                    Spacer(Modifier.height(6.dp))
+                                    Text(order.reviewText, color = ThemeManager.parseColor(theme.textPrimaryColor), fontStyle = FontStyle.Italic)
+                                }
+                                if (order.sellerReply.isNotEmpty()) {
+                                    Spacer(Modifier.height(8.dp))
+                                    Text("Ответ продавца:", color = ThemeManager.parseColor(theme.accentColor), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text(order.sellerReply, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 13.sp)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = {
+                                            myReviewText   = order.reviewText
+                                            myReviewRating = order.reviewRating
+                                            showWriteReviewDialog = true
+                                        },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                    ) { Text("Редактировать") }
+                                    Button(
+                                        onClick = { showDeleteMyReviewDialog = true },
+                                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f))
+                                    ) { Text("Удалить") }
+                                }
+                            }
+                        }
+                    } else {
+
+                        Button(
+                            onClick = {
+                                myReviewText   = ""
+                                myReviewRating = 5
+                                showWriteReviewDialog = true
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Star, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Оставить отзыв")
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                } else {
+
+                    if (order.hasReview) {
+                        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = 0.5f))) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text("Отзыв покупателя (${order.reviewRating}★)", color = ThemeManager.parseColor(theme.textPrimaryColor), fontWeight = FontWeight.Bold)
+                                Text(order.reviewText, color = ThemeManager.parseColor(theme.textPrimaryColor), fontStyle = FontStyle.Italic)
+
+                                if (order.sellerReply.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text("Ваш ответ:", color = ThemeManager.parseColor(theme.accentColor), fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                    Text(order.sellerReply, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                                }
+
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    Button(
+                                        onClick = { showReviewReplyDialog = true },
+                                        modifier = Modifier.weight(1f),
+                                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.surfaceColor), contentColor = ThemeManager.parseColor(theme.textPrimaryColor))
+                                    ) {
+                                        Text(if (order.sellerReply.isNotEmpty()) "Изменить" else "Ответить")
+                                    }
+                                    if (order.sellerReply.isNotEmpty()) {
+                                        Button(
+                                            onClick = { showDeleteReplyDialog = true },
+                                            colors = ButtonDefaults.buttonColors(containerColor = Color.Red.copy(alpha = 0.8f))
+                                        ) { Text("Удалить") }
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+
+                if (order.canConfirm) {
+                    Button(
+                        onClick = { showConfirmOrderDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                    ) {
+                        Text("Подтвердить выполнение заказа", color = Color.White, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                if (order.canRefund) {
+                    Button(
+                        onClick = { showRefundDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    ) {
+                        Text("Вернуть деньги", color = Color.White)
+                    }
+                }
+
+            }
+        }
+    }
+}
+
+
+@Composable
+fun TemplatesDialog(repository: FunPayRepository, theme: AppTheme, onDismiss: () -> Unit) {
+    var templates by remember { mutableStateOf(repository.getMessageTemplates()) }
+    var templateSettings by remember { mutableStateOf(repository.getTemplateSettings()) }
+
+
+    var editingId by remember { mutableStateOf<String?>(null) }
+    var formName by remember { mutableStateOf("") }
+    var formText by remember { mutableStateOf("") }
+    var formImageUri by remember { mutableStateOf<Uri?>(null) }
+    var formImageFirst by remember { mutableStateOf(true) }
+    var showForm by remember { mutableStateOf(false) }
+
+    fun resetForm() { editingId = null; formName = ""; formText = ""; formImageUri = null; formImageFirst = true; showForm = false }
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        formImageUri = uri?.let { repository.copyPickedImageToStorage(it)?.let { p -> Uri.parse(p) } ?: it }
+    }
+
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.92f).clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.dialogSurface(theme))) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+
+
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(if (showForm) (if (editingId != null) "Редактировать шаблон" else "Новый шаблон") else "Шаблоны сообщений",
+                        fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 20.sp)
+                    IconButton(onClick = if (showForm) ::resetForm else onDismiss) {
+                        Icon(if (showForm) Icons.Default.ArrowBack else Icons.Default.Close, null, tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                if (!showForm) {
+
+                    Row(Modifier.fillMaxWidth().background(ThemeManager.dialogSurface(theme).copy(0.5f), RoundedCornerShape(12.dp)).padding(12.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                        Column(Modifier.weight(1f)) {
+                            Text("Отправлять сразу", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                            Text("При нажатии сразу отправлять, не вставляя в поле ввода", color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 11.sp)
+                        }
+                        Switch(
+                            checked = templateSettings.sendImmediately,
+                            onCheckedChange = { templateSettings = templateSettings.copy(sendImmediately = it); repository.saveTemplateSettings(templateSettings) },
+                            colors = SwitchDefaults.colors(checkedThumbColor = ThemeManager.parseColor(theme.accentColor), checkedTrackColor = ThemeManager.parseColor(theme.accentColor).copy(0.5f))
+                        )
+                    }
+                    Spacer(Modifier.height(12.dp))
+
+                    Button(onClick = { resetForm(); showForm = true }, modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))) {
+                        Icon(Icons.Default.Add, null, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Добавить шаблон")
+                    }
+                    Spacer(Modifier.height(12.dp))
+
+                    if (templates.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(Icons.Default.ShortText, null, modifier = Modifier.size(64.dp), tint = ThemeManager.parseColor(theme.textSecondaryColor).copy(0.3f))
+                                Spacer(Modifier.height(16.dp))
+                                Text("Нет шаблонов", color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 16.sp)
+                            }
+                        }
+                    } else {
+
+                        val uniqueTemplates = remember(templates) { templates.distinctBy { it.id } }
+                        LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            items(uniqueTemplates.distinctBy { it.id }, key = { it.id }) { template ->
+                                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(ThemeManager.dialogSurface(theme).copy(0.5f))) {
+                                    Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Column(Modifier.weight(1f)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Text(template.name, color = ThemeManager.parseColor(theme.textPrimaryColor), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                                if (template.imageUri != null) {
+                                                    Spacer(Modifier.width(6.dp))
+                                                    Icon(Icons.Default.Image, null, modifier = Modifier.size(13.dp), tint = ThemeManager.parseColor(theme.accentColor))
+                                                }
+                                            }
+                                            if (template.text.isNotBlank()) {
+                                                Spacer(Modifier.height(3.dp))
+                                                Text(template.text, color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 12.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                            }
+                                        }
+
+                                        IconButton(onClick = {
+                                            editingId = template.id
+                                            formName = template.name
+                                            formText = template.text
+                                            formImageUri = template.imageUri?.let { Uri.parse(it) }
+                                            formImageFirst = template.imageFirst
+                                            showForm = true
+                                        }, modifier = Modifier.size(32.dp)) {
+                                            Icon(Icons.Default.Edit, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(16.dp))
+                                        }
+
+                                        IconButton(onClick = {
+                                            templates = templates.filter { it.id != template.id }
+                                            repository.saveMessageTemplates(templates)
+                                        }, modifier = Modifier.size(32.dp)) {
+                                            Icon(Icons.Default.Delete, null, tint = Color.Red, modifier = Modifier.size(16.dp))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                } else {
+
+                    Column(modifier = Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+
+                        OutlinedTextField(
+                            value = formName, onValueChange = { formName = it },
+                            modifier = Modifier.fillMaxWidth(), label = { Text("Название шаблона") }, singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                                cursorColor = ThemeManager.parseColor(theme.accentColor)
+                            )
+                        )
+                        Spacer(Modifier.height(10.dp))
+
+                        OutlinedTextField(
+                            value = formText, onValueChange = { formText = it },
+                            modifier = Modifier.fillMaxWidth().height(110.dp),
+                            label = { Text("Текст (необязательно, если есть картинка)") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                                cursorColor = ThemeManager.parseColor(theme.accentColor)
+                            ),
+                            maxLines = 5
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text("\$username  ·  \$welcome  ·  \$date", fontSize = 11.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+
+                        Spacer(Modifier.height(10.dp))
+
+                        ImagePickerRow(
+                            imageUri = formImageUri, theme = theme,
+                            onPick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                            onClear = { formImageUri = null }
+                        )
+
+
+                        if (formImageUri != null && formText.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            ImageOrderPicker(formImageFirst, theme) { formImageFirst = it }
+                        }
+                    }
+
+                    Spacer(Modifier.height(12.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = ::resetForm, modifier = Modifier.weight(1f)) {
+                            Text("Отмена", color = ThemeManager.parseColor(theme.textSecondaryColor))
+                        }
+                        Button(
+                            onClick = {
+                                val hasContent = formName.isNotBlank() && (formText.isNotBlank() || formImageUri != null)
+                                if (hasContent) {
+                                    val tpl = MessageTemplate(
+                                        id = editingId ?: UUID.randomUUID().toString(),
+                                        name = formName.trim(), text = formText.trim(),
+                                        imageUri = formImageUri?.toString(), imageFirst = formImageFirst
+                                    )
+                                    templates = if (editingId != null) templates.map { if (it.id == editingId) tpl else it } else templates + tpl
+                                    repository.saveMessageTemplates(templates)
+                                    resetForm()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                        ) { Text(if (editingId != null) "Сохранить" else "Добавить") }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun OrderConfirmDialog(repository: FunPayRepository, theme: AppTheme, onDismiss: () -> Unit) {
+    var settings by remember { mutableStateOf(repository.getOrderConfirmSettings()) }
+    var imageUri by remember { mutableStateOf(settings.imageUri?.let { Uri.parse(it) }) }
+
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        val localUri = uri?.let { repository.copyPickedImageToStorage(it)?.let { p -> Uri.parse(p) } ?: it }
+        imageUri = localUri
+        settings = settings.copy(imageUri = localUri?.toString())
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(modifier = Modifier.clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.dialogSurface(theme))) {
+            Column(modifier = Modifier.padding(16.dp).verticalScroll(rememberScrollState())) {
+                Text("Настройка просьбы отзыва", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 18.sp)
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text("Текст сообщения:", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                OutlinedTextField(
+                    value = settings.text,
+                    onValueChange = { settings = settings.copy(text = it) },
+                    modifier = Modifier.fillMaxWidth().height(120.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                        unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                        focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                        cursorColor = ThemeManager.parseColor(theme.accentColor)
+                    )
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Переменные: \$username, \$order_id, \$order_link, \$chat_name, \$date, \$time",
+                    fontSize = 11.sp, lineHeight = 14.sp,
+                    color = ThemeManager.parseColor(theme.textSecondaryColor)
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                ImagePickerRow(
+                    imageUri = imageUri, theme = theme,
+                    onPick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                    onClear = { imageUri = null; settings = settings.copy(imageUri = null) }
+                )
+                if (imageUri != null && settings.text.isNotBlank()) {
+                    Spacer(Modifier.height(8.dp))
+                    ImageOrderPicker(settings.imageFirst, theme) { settings = settings.copy(imageFirst = it) }
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+                Button(
+                    onClick = { repository.saveOrderConfirmSettings(settings); onDismiss() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                ) { Text("Сохранить") }
+            }
+        }
+    }
+}
+
+fun processTemplateVariables(text: String, username: String): String {
+    var processed = text
+
+
+
+    processed = processed.replace("\$username", username)
+
+
+    if (processed.contains("\$date")) {
+        val dateFormat = SimpleDateFormat("dd.MM.yyyy, HH:mm", Locale.getDefault())
+        processed = processed.replace("\$date", dateFormat.format(Date()))
+    }
+
+
+    if (processed.contains("\$welcome")) {
+        val calendar = Calendar.getInstance()
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val greeting = when (hour) {
+            in 5..11 -> "Доброе утро"
+            in 12..17 -> "Добрый день"
+            in 18..23 -> "Добрый вечер"
+            else -> "Доброй ночи"
+        }
+        processed = processed.replace("\$welcome", greeting)
+    }
+
+    return processed
+}
+
+
+
+@Composable
+fun DonationScreen(theme: AppTheme) {
+    val context = LocalContext.current
+    val clipboardManager = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+
+    fun openUrl(url: String) {
+        try {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        } catch (e: Exception) {
+            Toast.makeText(context, "Не удалось открыть ссылку", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun copyToClipboard(label: String, text: String) {
+        val clip = ClipData.newPlainText(label, text)
+        clipboardManager.setPrimaryClip(clip)
+        Toast.makeText(context, "$label скопирован", Toast.LENGTH_SHORT).show()
+    }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(20.dp)
+    ) {
+        item {
+            Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity)).border(1.5.dp, if (LicenseManager.isProActive()) Color(0xFF4CAF50).copy(alpha = 0.5f)
+            else ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.4f), RoundedCornerShape(20.dp))) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (LicenseManager.isProActive()) "💎" else "🔒",
+                                fontSize = 32.sp
+                            )
+                            Spacer(Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    if (LicenseManager.isProActive()) "PRO активен" else "Бесплатный план",
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 18.sp,
+                                    color = ThemeManager.parseColor(theme.textPrimaryColor)
+                                )
+                                val state = LicenseManager.licenseState
+                                if (LicenseManager.isProActive() && state is LicenseState.Active) {
+                                    Text(
+                                        "До ${LicenseManager.formatExpiry(state.expiresAt)}",
+                                        fontSize = 13.sp,
+                                        color = Color(0xFF81C784)
+                                    )
+                                } else if (!LicenseManager.isProActive()) {
+                                    Text(
+                                        "Лоты, виджеты и AI недоступны",
+                                        fontSize = 13.sp,
+                                        color = ThemeManager.parseColor(theme.textSecondaryColor)
+                                    )
+                                }
+                            }
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(20.dp),
+                            color = if (LicenseManager.isProActive())
+                                Color(0xFF4CAF50).copy(alpha = 0.15f)
+                            else
+                                Color.Red.copy(alpha = 0.1f)
+                        ) {
+                            Text(
+                                if (LicenseManager.isProActive()) "ACTIVE" else "FREE",
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (LicenseManager.isProActive()) Color(0xFF4CAF50) else Color(0xFFEF5350)
+                            )
+                        }
+                    }
+
+                    if (!LicenseManager.isProActive()) {
+                        var keyInput   by remember { mutableStateOf("") }
+                        var keyError   by remember { mutableStateOf<String?>(null) }
+                        var keySuccess by remember { mutableStateOf(false) }
+                        var activating by remember { mutableStateOf(false) }
+
+                        Spacer(Modifier.height(24.dp))
+                        HorizontalDivider(color = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.1f))
+                        Spacer(Modifier.height(20.dp))
+
+                        Text(
+                            "Есть ключ активации?",
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 15.sp,
+                            color = ThemeManager.parseColor(theme.textPrimaryColor)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            "Введи ключ вида FPT-XXXX-XXXX, полученный в боте @FPToolsBot",
+                            fontSize = 13.sp,
+                            color = ThemeManager.parseColor(theme.textSecondaryColor),
+                            lineHeight = 18.sp
+                        )
+                        Spacer(Modifier.height(14.dp))
+
+                        OutlinedTextField(
+                            value = keyInput,
+                            onValueChange = {
+                                keyInput   = it.uppercase().trim()
+                                keyError   = null
+                                keySuccess = false
+                            },
+                            label           = { Text("Лицензионный ключ") },
+                            placeholder     = { Text("FPT-XXXX-XXXX") },
+                            modifier        = Modifier.fillMaxWidth(),
+                            singleLine      = true,
+                            isError         = keyError != null,
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor   = ThemeManager.parseColor(theme.accentColor),
+                                unfocusedBorderColor = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.3f),
+                                focusedTextColor     = ThemeManager.parseColor(theme.textPrimaryColor),
+                                unfocusedTextColor   = ThemeManager.parseColor(theme.textPrimaryColor),
+                                cursorColor          = ThemeManager.parseColor(theme.accentColor)
+                            ),
+                            shape = RoundedCornerShape(theme.borderRadius.dp),
+                            trailingIcon = {
+                                if (keySuccess) Icon(
+                                    Icons.Default.CheckCircle,
+                                    contentDescription = null,
+                                    tint = Color(0xFF4CAF50)
+                                )
+                            },
+                            supportingText = {
+                                keyError?.let {
+                                    Text(it, color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                                }
+                            }
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Button(
+                            onClick = {
+                                if (keyInput.length < 8) { keyError = "Введите корректный ключ"; return@Button }
+                                activating = true; keyError = null
+                                LicenseManager.activateKey(keyInput) { res ->
+                                    activating = false
+                                    res.fold(
+                                        onSuccess = { keySuccess = true },
+                                        onFailure = { e -> keyError = e.message }
+                                    )
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            enabled  = !activating && keyInput.isNotEmpty(),
+                            shape    = RoundedCornerShape(theme.borderRadius.dp),
+                            colors   = ButtonDefaults.buttonColors(
+                                containerColor = ThemeManager.parseColor(theme.accentColor)
+                            )
+                        ) {
+                            if (activating) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                            }
+                            Text("Активировать ключ", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                        }
+                        Spacer(Modifier.height(10.dp))
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/FPToolsBot")))
+                                } catch (_: Exception) {}
+                            },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            shape = RoundedCornerShape(theme.borderRadius.dp),
+                            border = BorderStroke(1.dp, ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.5f)),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = ThemeManager.parseColor(theme.accentColor)
+                            )
+                        ) {
+                            Text("Купить PRO в @FPToolsBot", fontWeight = FontWeight.Medium, fontSize = 14.sp)
+                        }
+                    }
+
+                    if (LicenseManager.isProActive()) {
+                        Spacer(Modifier.height(16.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Ключ: ${LicenseManager.currentKey.take(12)}...",
+                                fontSize = 12.sp,
+                                color = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.6f),
+                                fontFamily = FontFamily.Monospace
+                            )
+                            TextButton(
+                                onClick = { LicenseManager.clearLicense() },
+                                contentPadding = PaddingValues(0.dp)
+                            ) {
+                                Text("Отвязать устройство", fontSize = 12.sp, color = Color.Red.copy(alpha = 0.7f))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            var expanded by remember { mutableStateOf(false) }
+
+            Box(modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }.clip(RoundedCornerShape(16.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Default.Tune,
+                                contentDescription = null,
+                                tint = ThemeManager.parseColor(theme.accentColor),
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(
+                                    "Мой доступ к функциям",
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 15.sp,
+                                    color = ThemeManager.parseColor(theme.textPrimaryColor)
+                                )
+                                Text(
+                                    if (LicenseManager.isProActive()) "PRO - всё открыто навсегда"
+                                    else "Нажми, чтобы увидеть статус каждой функции",
+                                    fontSize = 12.sp,
+                                    color = ThemeManager.parseColor(theme.textSecondaryColor)
+                                )
+                            }
+                        }
+                        Icon(
+                            if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = null,
+                            tint = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.6f)
+                        )
+                    }
+
+                    AnimatedVisibility(visible = expanded, enter = fadeIn()) {
+                        Column(modifier = Modifier.padding(top = 16.dp)) {
+                            HorizontalDivider(
+                                color = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.1f),
+                                modifier = Modifier.padding(bottom = 14.dp)
+                            )
+                            PremiumFeature.entries.forEach { feature ->
+                                val isPro    = LicenseManager.isProActive()
+                                val adLeft   = LicenseManager.adUnlockLeftLabel(feature)
+                                val adActive = LicenseManager.isAdUnlocked(feature)
+
+                                val (statusText, statusColor, bgColor) = when {
+                                    isPro     -> Triple("∞ PRO", Color(0xFF4CAF50), Color(0xFF4CAF50).copy(alpha = 0.1f))
+                                    feature == PremiumFeature.XD_DUMPER -> Triple("Только PRO", Color(0xFFEF5350), Color.Red.copy(alpha = 0.07f))
+                                    adActive  -> Triple("$adLeft осталось", Color(0xFF42A5F5), Color(0xFF1565C0).copy(alpha = 0.12f))
+                                    else      -> Triple("Закрыто", Color(0xFFEF5350), Color.Red.copy(alpha = 0.07f))
+                                }
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 5.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(bgColor)
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                        Text(feature.emoji, fontSize = 18.sp)
+                                        Spacer(Modifier.width(10.dp))
+                                        Text(
+                                            feature.displayName,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            color = ThemeManager.parseColor(theme.textPrimaryColor)
+                                        )
+                                    }
+                                    Surface(
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = Color.Transparent
+                                    ) {
+                                        Text(
+                                            statusText,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = statusColor
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            HorizontalDivider(
+                                color = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.1f)
+                            )
+                            Spacer(Modifier.height(10.dp))
+                            if (!LicenseManager.isProActive()) {
+                                Text(
+                                    "💡 «Закрыто» означает только то, что закрыт доступ к настройкам этой функции - включить, выключить или изменить. Если функция уже была включена, она продолжает работать в фоне как обычно. Чтобы снова получить доступ к настройкам - просто посмотри рекламу, либо поддержи разработчика и купи PRO",
+                                    fontSize = 11.sp,
+                                    color = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.55f),
+                                    lineHeight = 16.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(
+                    Icons.Default.Favorite,
+                    contentDescription = null,
+                    tint = ThemeManager.parseColor(theme.accentColor),
+                    modifier = Modifier.size(48.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Поддержка разработки",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Black,
+                    color = ThemeManager.parseColor(theme.textPrimaryColor),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    "Помогите проекту стать лучше",
+                    fontSize = 14.sp,
+                    color = ThemeManager.parseColor(theme.textSecondaryColor),
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+
+        item {
+            Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .background(
+                                    ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.15f),
+                                    CircleShape
+                                ),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Computer,
+                                contentDescription = null,
+                                tint = ThemeManager.parseColor(theme.accentColor),
+                                modifier = Modifier.size(32.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column {
+                            Text(
+                                "Моя рабочая станция",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = ThemeManager.parseColor(theme.textPrimaryColor)
+                            )
+                            Text(
+                                "Lenovo 2014 года",
+                                fontSize = 13.sp,
+                                color = ThemeManager.parseColor(theme.textSecondaryColor)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        "Я - независимый разработчик AlliSighs. Создаю качественный софт на старом ноутбуке 2014 года. Ваша поддержка поможет обновить железо и делать еще больше крутых функций!",
+                        color = ThemeManager.parseColor(theme.textSecondaryColor),
+                        fontSize = 14.sp,
+                        lineHeight = 20.sp,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color(0xFF1E1E1E))) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text("System Model: Lenovo 20AV005HMS", color = Color(0xFF00E676), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                            Text("CPU: Intel Core i5-4200M @ 2.60GHz", color = Color(0xFF00E676), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                            Text("RAM: 3 993 MB (4GB)", color = Color(0xFFFF5252), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                            Text("OS: Windows 10 Pro", color = Color(0xFF00E676), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Button(
+                        onClick = { openUrl("https://allisighs.github.io/pages/portfolio/") },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.15f),
+                            contentColor   = ThemeManager.parseColor(theme.accentColor)
+                        ),
+                        shape = RoundedCornerShape(theme.borderRadius.dp)
+                    ) {
+                        Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Посмотреть портфолио", fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        }
+
+        item {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                ImprovedTariffCard(
+                    title = "Наш канал",
+                    price = "Бесплатно",
+                    desc = "Новости и обновления FunPay Tools",
+                    gradient = listOf(Color(0xFF4B20B9), Color(0xFF8200B5)),
+                    icon = Icons.AutoMirrored.Filled.Send,
+                    theme = theme,
+                    modifier = Modifier.weight(1f),
+                    onClick = { openUrl("https://t.me/fptools") }
+                )
+                ImprovedTariffCard(
+                    title = "Уважение+",
+                    price = "Любая сумма",
+                    desc = "CryptoBot счёт",
+                    gradient = listOf(Color(0xFF00B0FF), Color(0xFF0091EA)),
+                    icon = Icons.Default.Diamond,
+                    theme = theme,
+                    modifier = Modifier.weight(1f),
+                    onClick = { openUrl("http://t.me/send?start=IVTSEqtWdcPG") }
+                )
+            }
+        }
+
+        item {
+            Box(modifier = Modifier.fillMaxWidth().clickable { openUrl("https://t.me/AlliSighs") }.clip(RoundedCornerShape(16.dp)).background(Color(0xFF229ED9).copy(alpha = 0.15f))) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(20.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier.size(48.dp).background(Color(0xFF229ED9).copy(alpha = 0.2f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = null, tint = Color(0xFF229ED9), modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Связаться в Telegram", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                        Text("@AlliSighs", fontSize = 13.sp, color = Color(0xFF229ED9), fontWeight = FontWeight.Medium)
+                    }
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, tint = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.5f))
+                }
+            }
+        }
+
+        item {
+            Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity))) {
+                Column(modifier = Modifier.padding(20.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Payment, contentDescription = null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("Реквизиты для перевода", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    ImprovedCopyableField(
+                        label = "USDT (TON)",
+                        value = "UQCC0H4FZyfWg4bwM3yvHtNsoGgytM18us37sJPUfz4-jXE4",
+                        icon = Icons.Default.CurrencyBitcoin,
+                        theme = theme,
+                        onCopy = { copyToClipboard("USDT адрес", it) }
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ImprovedCopyableField(
+                        label = "Monobank (UAH)",
+                        value = "4441 1144 0934 7711",
+                        icon = Icons.Default.CreditCard,
+                        theme = theme,
+                        onCopy = { copyToClipboard("Номер карты", it) }
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = ThemeManager.parseColor(theme.textSecondaryColor).copy(alpha = 0.2f), thickness = 1.dp)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { openUrl("https://funpay.com/users/6402834/") }
+                            .background(ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.1f), RoundedCornerShape(12.dp))
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.ShoppingCart, contentDescription = null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Мой профиль FunPay", fontWeight = FontWeight.SemiBold, fontSize = 15.sp, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                            Text("Открыть в браузере", fontSize = 12.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                        }
+                        Icon(Icons.Default.OpenInNew, contentDescription = null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+        }
+
+        item {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Default.Favorite, contentDescription = null, tint = Color(0xFFFF1744), modifier = Modifier.size(32.dp))
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("Спасибо за вашу поддержку!", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = ThemeManager.parseColor(theme.textPrimaryColor), textAlign = TextAlign.Center)
+                Spacer(modifier = Modifier.height(4.dp))
+                Text("Вы помогаете проекту развиваться ❤️", fontSize = 13.sp, color = ThemeManager.parseColor(theme.textSecondaryColor), textAlign = TextAlign.Center)
+            }
+        }
+
+        item { Spacer(modifier = Modifier.height(16.dp)) }
+    }
+}
+
+
+@Composable
+fun ImprovedTariffCard(
+    title: String,
+    price: String,
+    desc: String,
+    gradient: List<Color>,
+    icon: ImageVector,
+    theme: AppTheme,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Box(modifier = modifier
+        .height(180.dp)
+        .clickable(onClick = onClick).clip(RoundedCornerShape(16.dp)).background(ThemeManager.parseColor(theme.surfaceColor)).border(2.dp, Brush.verticalGradient(gradient), RoundedCornerShape(16.dp))) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+
+                Box(
+                    modifier = Modifier
+                        .size(64.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                gradient.map { it.copy(alpha = 0.15f) }
+                            ),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        icon,
+                        contentDescription = null,
+                        tint = gradient[0],
+                        modifier = Modifier.size(36.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+
+                Text(
+                    title,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    color = ThemeManager.parseColor(theme.textPrimaryColor),
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+
+                Text(
+                    price,
+                    fontWeight = FontWeight.Black,
+                    fontSize = 18.sp,
+                    color = gradient[0],
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+
+                Text(
+                    desc,
+                    fontSize = 12.sp,
+                    color = ThemeManager.parseColor(theme.textSecondaryColor),
+                    textAlign = TextAlign.Center,
+                    lineHeight = 16.sp
+                )
+            }
+
+
+            Icon(
+                Icons.Default.TouchApp,
+                contentDescription = null,
+                tint = gradient[0].copy(alpha = 0.3f),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+                    .size(20.dp)
+            )
+        }
+    }
+}
+
+
+@Composable
+fun ImprovedCopyableField(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    theme: AppTheme,
+    onCopy: (String) -> Unit
+) {
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .clickable { onCopy(value) }.clip(RoundedCornerShape(12.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = 0.5f))) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(
+                        ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.15f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = ThemeManager.parseColor(theme.accentColor),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    label,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ThemeManager.parseColor(theme.textSecondaryColor),
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    value,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ThemeManager.parseColor(theme.textPrimaryColor),
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(
+                        ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.15f),
+                        CircleShape
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = "Копировать",
+                    tint = ThemeManager.parseColor(theme.accentColor),
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+data class ChatLabel(
+    @SerializedName("id") val id: String = UUID.randomUUID().toString(),
+    @SerializedName("name") val name: String = "",
+    @SerializedName("color") val color: String = "#7C4DFF"
+)
+
+data class ChatFolder(
+    @SerializedName("id") val id: String = UUID.randomUUID().toString(),
+    @SerializedName("name") val name: String = "",
+    @SerializedName("chatIds") val chatIds: List<String> = emptyList(),
+    @SerializedName("isPreset") val isPreset: Boolean = false,
+    @SerializedName("presetType") val presetType: String? = null
+)
+
+data class BusyModeSettings(
+    @SerializedName("enabled") val enabled: Boolean = false,
+    @SerializedName("message") val message: String = "Я сейчас занят, отвечу позже",
+    @SerializedName("cooldownMinutes") val cooldownMinutes: Int = 60,
+    @SerializedName("autoRefund") val autoRefund: Boolean = false,
+    @SerializedName("autoRefundMessage") val autoRefundMessage: Boolean = false,
+    @SerializedName("keepRaise") val keepRaise: Boolean = false,
+    @SerializedName("keepAutoResponse") val keepAutoResponse: Boolean = false,
+    @SerializedName("keepGreeting") val keepGreeting: Boolean = false,
+    @SerializedName("enabledAt") val enabledAt: Long = 0L,
+    @SerializedName("imageUri") val imageUri: String? = null,
+    @SerializedName("imageFirst") val imageFirst: Boolean = true,
+
+    @SerializedName("skipRefundIfAutoDelivery") val skipRefundIfAutoDelivery: Boolean = false,
+    @SerializedName("autoDeliveryMessageEnabled") val autoDeliveryMessageEnabled: Boolean = false,
+    @SerializedName("autoDeliveryMessage") val autoDeliveryMessage: String = "Спасибо за заказ! Товар уже выдан автоматически. Если возникнут вопросы — отвечу, как освобожусь."
+)
+
+data class FloodChatSettings(
+    @SerializedName("enabled") val enabled: Boolean = false,
+    @SerializedName("pinFirst") val pinFirst: Boolean = false,
+    @SerializedName("folderId") val folderId: String? = null,
+    @SerializedName("customDisplayName") val customDisplayName: String = "Флудилка"
+)
+
+data class BusyScheduleSlot(
+    @SerializedName("id") val id: String = UUID.randomUUID().toString(),
+    @SerializedName("name") val name: String = "Рабочее время",
+    @SerializedName("days") val days: List<Int> = listOf(1, 2, 3, 4, 5),
+    @SerializedName("startMinute") val startMinute: Int = 9 * 60,
+    @SerializedName("endMinute") val endMinute: Int = 18 * 60,
+    @SerializedName("overrideMessage") val overrideMessage: Boolean = false,
+    @SerializedName("message") val message: String = "",
+    @SerializedName("overrideCooldown") val overrideCooldown: Boolean = false,
+    @SerializedName("cooldownMinutes") val cooldownMinutes: Int = 60
+)
+
+data class BusyScheduleSettings(
+    @SerializedName("enabled") val enabled: Boolean = false,
+    @SerializedName("slots") val slots: List<BusyScheduleSlot> = emptyList()
+)
+
+object ChatFolderManager {
+    private const val PREFS = "chat_folders"
+    private val gson = Gson()
+
+    fun getLabels(context: Context): List<ChatLabel> {
+        val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("labels", null) ?: return emptyList()
+        return try { gson.fromJson(json, object : TypeToken<List<ChatLabel>>() {}.type) ?: emptyList() } catch (e: Exception) { emptyList() }
+    }
+    fun saveLabels(context: Context, v: List<ChatLabel>) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("labels", gson.toJson(v)).apply()
+
+    fun getFolders(context: Context): List<ChatFolder> {
+        val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("folders", null) ?: return emptyList()
+        return try { gson.fromJson(json, object : TypeToken<List<ChatFolder>>() {}.type) ?: emptyList() } catch (e: Exception) { emptyList() }
+    }
+    fun saveFolders(context: Context, v: List<ChatFolder>) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("folders", gson.toJson(v)).apply()
+
+    fun getChatLabels(context: Context): Map<String, List<String>> {
+        val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("chat_labels", null) ?: return emptyMap()
+        return try { gson.fromJson(json, object : TypeToken<Map<String, List<String>>>() {}.type) ?: emptyMap() } catch (e: Exception) { emptyMap() }
+    }
+    fun saveChatLabels(context: Context, v: Map<String, List<String>>) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("chat_labels", gson.toJson(v)).apply()
+
+    fun getBusyMode(context: Context): BusyModeSettings {
+        val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("busy_mode", null) ?: return BusyModeSettings()
+        return try { gson.fromJson(json, BusyModeSettings::class.java) ?: BusyModeSettings() } catch (e: Exception) { BusyModeSettings() }
+    }
+    fun saveBusyMode(context: Context, v: BusyModeSettings) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("busy_mode", gson.toJson(v)).apply()
+
+    fun getFloodChat(context: Context): FloodChatSettings {
+        val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("flood_chat_settings", null) ?: return FloodChatSettings()
+        return try { gson.fromJson(json, FloodChatSettings::class.java) ?: FloodChatSettings() } catch (e: Exception) { FloodChatSettings() }
+    }
+    fun saveFloodChat(context: Context, v: FloodChatSettings) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("flood_chat_settings", gson.toJson(v)).apply()
+
+    fun getBusySchedule(context: Context): BusyScheduleSettings {
+        val json = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("busy_schedule", null) ?: return BusyScheduleSettings()
+        return try { gson.fromJson(json, BusyScheduleSettings::class.java) ?: BusyScheduleSettings() } catch (e: Exception) { BusyScheduleSettings() }
+    }
+    fun saveBusySchedule(context: Context, v: BusyScheduleSettings) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("busy_schedule", gson.toJson(v)).apply()
+
+    fun getActiveScheduleSlot(context: Context, now: Calendar = Calendar.getInstance()): BusyScheduleSlot? {
+        val settings = getBusySchedule(context)
+        if (!settings.enabled || settings.slots.isEmpty()) return null
+
+
+
+        val rawDow = now.get(Calendar.DAY_OF_WEEK)
+        val isoToday = if (rawDow == Calendar.SUNDAY) 7 else rawDow - 1
+        val isoYesterday = if (isoToday == 1) 7 else isoToday - 1
+        val minuteOfDay = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
+
+        for (slot in settings.slots) {
+            if (slot.days.isEmpty()) continue
+            val wrapsOverMidnight = slot.endMinute <= slot.startMinute
+
+            if (!wrapsOverMidnight) {
+                if (isoToday in slot.days && minuteOfDay in slot.startMinute until slot.endMinute) {
+                    return slot
+                }
+            } else {
+
+                val startedYesterday = isoYesterday in slot.days && minuteOfDay < slot.endMinute
+                val startedToday = isoToday in slot.days && minuteOfDay >= slot.startMinute
+                if (startedYesterday || startedToday) return slot
+            }
+        }
+        return null
+    }
+}
+
+@Composable
+fun ChatFolderTabs(
+    folders: List<ChatFolder>,
+    selectedFolderId: String?,
+    onFolderSelected: (String?) -> Unit,
+    onManageFolders: () -> Unit,
+    theme: AppTheme
+) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    val surface = ThemeManager.parseColor(theme.surfaceColor)
+    val all = listOf(null to "Все") + folders.map { it.id as String? to it.name }
+
+    Row(
+        modifier = Modifier.fillMaxWidth().height(36.dp).horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Spacer(Modifier.width(8.dp))
+        all.forEach { (fid, fname) ->
+            val selected = fid == selectedFolderId
+            val bg by animateColorAsState(if (selected) accent.copy(alpha = 0.18f) else Color.Transparent, label = "tb")
+            val tc by animateColorAsState(if (selected) accent else textSecondary, label = "tt")
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(bg)
+                    .clickable { onFolderSelected(fid) }
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Text(fname, fontSize = 13.sp, color = tc, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
+            }
+            Spacer(Modifier.width(4.dp))
+        }
+        Box(
+            modifier = Modifier.size(26.dp).clip(CircleShape).background(surface.copy(alpha = 0.5f)).clickable { onManageFolders() },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.Add, null, tint = textSecondary, modifier = Modifier.size(15.dp))
+        }
+        Spacer(Modifier.width(8.dp))
+    }
+}
+
+@Composable
+fun BusyModeCard(settings: BusyModeSettings, onToggle: () -> Unit, onConfigure: () -> Unit, theme: AppTheme) {
+    val busyColor = Color(0xFFFF5722)
+    val cardColor by animateColorAsState(
+        if (settings.enabled) busyColor.copy(alpha = 0.15f) else ThemeManager.parseColor(theme.surfaceColor).copy(alpha = theme.containerOpacity),
+        label = "bc"
+    )
+    val borderColor by animateColorAsState(if (settings.enabled) busyColor else Color.Transparent, label = "bb")
+    val cardH by animateDpAsState(if (settings.enabled) 80.dp else 68.dp, label = "bh")
+
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .height(cardH)
+        .border(if (settings.enabled) 1.5.dp else 0.dp, borderColor, RoundedCornerShape(theme.borderRadius.dp)).clip(RoundedCornerShape(theme.borderRadius.dp)).background(cardColor)) {
+        Row(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.DoNotDisturb, null, tint = if (settings.enabled) busyColor else ThemeManager.parseColor(theme.textSecondaryColor), modifier = Modifier.size(26.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Режим занятости", fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 15.sp)
+                Text(
+                    if (settings.enabled) "Активен · функции заморожены" else "Выключен",
+                    color = if (settings.enabled) busyColor else ThemeManager.parseColor(theme.textSecondaryColor),
+                    fontSize = 12.sp
+                )
+            }
+            if (settings.enabled) {
+                IconButton(onClick = onConfigure) {
+                    Icon(Icons.Default.Settings, null, tint = busyColor, modifier = Modifier.size(20.dp))
+                }
+            }
+            Switch(
+                checked = settings.enabled,
+                onCheckedChange = { onToggle() },
+                colors = SwitchDefaults.colors(checkedThumbColor = busyColor, checkedTrackColor = busyColor.copy(alpha = 0.4f))
+            )
+        }
+    }
+}
+
+@Composable
+fun BusyModeDialog(settings: BusyModeSettings, onSave: (BusyModeSettings) -> Unit, onDismiss: () -> Unit, theme: AppTheme) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val surface = ThemeManager.dialogSurface(theme)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    var message by remember { mutableStateOf(settings.message) }
+    var cooldown by remember { mutableIntStateOf(settings.cooldownMinutes) }
+    var autoRefund by remember { mutableStateOf(settings.autoRefund) }
+    var autoRefundMessage by remember { mutableStateOf(settings.autoRefundMessage) }
+    var keepRaise by remember { mutableStateOf(settings.keepRaise) }
+    var keepAutoResp by remember { mutableStateOf(settings.keepAutoResponse) }
+    var keepGreeting by remember { mutableStateOf(settings.keepGreeting) }
+    var imageUri by remember { mutableStateOf(settings.imageUri?.let { Uri.parse(it) }) }
+    var imageFirst by remember { mutableStateOf(settings.imageFirst) }
+    var skipRefundIfAutoDelivery by remember { mutableStateOf(settings.skipRefundIfAutoDelivery) }
+    var autoDeliveryMessageEnabled by remember { mutableStateOf(settings.autoDeliveryMessageEnabled) }
+    var autoDeliveryMessage by remember { mutableStateOf(settings.autoDeliveryMessage) }
+
+    val context = LocalContext.current
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        imageUri = uri?.let { FunPayRepository(context).copyPickedImageToStorage(it)?.let { p -> Uri.parse(p) } ?: it }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(surface)) {
+            LazyColumn(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                item {
+                    Text("Режим занятости", fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 16.sp)
+                    Spacer(Modifier.height(2.dp))
+                    Text("Покупатели получат сообщение, другие функции заморожены (кроме выбранных)", color = textSecondary, fontSize = 12.sp, lineHeight = 16.sp)
+                }
+                item {
+                    Text("Сообщение покупателю", color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(6.dp))
+                    OutlinedTextField(
+                        value = message, onValueChange = { message = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Я сейчас занят...", color = textSecondary) },
+                        minLines = 2,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = textSecondary.copy(alpha = 0.4f), focusedTextColor = textPrimary, unfocusedTextColor = textPrimary)
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    ImagePickerRow(
+                        imageUri = imageUri,
+                        theme = theme,
+                        onPick = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                        onClear = { imageUri = null }
+                    )
+                    if (imageUri != null && message.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        ImageOrderPicker(imageFirst, theme) { imageFirst = it }
+                    }
+                }
+                item {
+                    Text("Повторять не чаще: $cooldown мин", color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Slider(value = cooldown.toFloat(), onValueChange = { cooldown = it.toInt() }, valueRange = 0f..480f, steps = 47,
+                        colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent))
+                    Text(if (cooldown == 0) "Каждый раз" else "Если покупатель снова пишет, то отправим через $cooldown мин", color = textSecondary, fontSize = 11.sp)
+                }
+                item {
+                    Text("При новом заказе", color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(4.dp))
+                    listOf(
+                        Triple("Отклонить заказ (вернуть деньги)", autoRefund) { v: Boolean -> autoRefund = v },
+                        Triple("Ответить покупателю сообщением", autoRefundMessage) { v: Boolean -> autoRefundMessage = v }
+                    ).forEach { (label, checked, onCh) ->
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(label, color = textPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            Switch(checked = checked, onCheckedChange = onCh, colors = SwitchDefaults.colors(checkedThumbColor = accent, checkedTrackColor = accent.copy(alpha = 0.4f)))
+                        }
+                    }
+                }
+                item {
+                    Text("Заказы с автовыдачей", color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        "Если товар выдаётся автоматически, возврат деньгами приводит к потерям. Здесь можно запретить возврат именно таких заказов.",
+                        color = textSecondary, fontSize = 11.sp, lineHeight = 15.sp
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Не возвращать заказы с автовыдачей", color = textPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = skipRefundIfAutoDelivery,
+                            onCheckedChange = { skipRefundIfAutoDelivery = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = accent, checkedTrackColor = accent.copy(alpha = 0.4f))
+                        )
+                    }
+                    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Отдельное сообщение для автовыдачи", color = textPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Switch(
+                            checked = autoDeliveryMessageEnabled,
+                            onCheckedChange = { autoDeliveryMessageEnabled = it },
+                            colors = SwitchDefaults.colors(checkedThumbColor = accent, checkedTrackColor = accent.copy(alpha = 0.4f))
+                        )
+                    }
+                    if (autoDeliveryMessageEnabled) {
+                        Spacer(Modifier.height(4.dp))
+                        OutlinedTextField(
+                            value = autoDeliveryMessage,
+                            onValueChange = { autoDeliveryMessage = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Спасибо за заказ! Товар уже выдан автоматически...", color = textSecondary) },
+                            minLines = 2,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = textSecondary.copy(alpha = 0.4f), focusedTextColor = textPrimary, unfocusedTextColor = textPrimary)
+                        )
+                    }
+                }
+                item {
+                    Text("Оставить включёнными", color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                    Spacer(Modifier.height(4.dp))
+                    listOf(
+                        Triple("Автоподнятие", keepRaise) { v: Boolean -> keepRaise = v },
+                        Triple("Все автоответы", keepAutoResp) { v: Boolean -> keepAutoResp = v },
+                        Triple("Приветствие", keepGreeting) { v: Boolean -> keepGreeting = v },
+                    ).forEach { (label, checked, onCh) ->
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(label, color = textPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            Switch(checked = checked, onCheckedChange = onCh, colors = SwitchDefaults.colors(checkedThumbColor = accent, checkedTrackColor = accent.copy(alpha = 0.4f)))
+                        }
+                    }
+                }
+                item {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(onClick = onDismiss, modifier = Modifier.weight(1f)) { Text("Отмена", color = textSecondary) }
+                        Button(
+                            onClick = {
+                                onSave(BusyModeSettings(
+                                    enabled = settings.enabled,
+                                    message = message,
+                                    cooldownMinutes = cooldown,
+                                    autoRefund = autoRefund,
+                                    autoRefundMessage = autoRefundMessage,
+                                    keepRaise = keepRaise,
+                                    keepAutoResponse = keepAutoResp,
+                                    keepGreeting = keepGreeting,
+                                    enabledAt = settings.enabledAt,
+                                    imageUri = imageUri?.toString(),
+                                    imageFirst = imageFirst,
+                                    skipRefundIfAutoDelivery = skipRefundIfAutoDelivery,
+                                    autoDeliveryMessageEnabled = autoDeliveryMessageEnabled,
+                                    autoDeliveryMessage = autoDeliveryMessage
+                                ))
+                                onDismiss()
+                            },
+                            modifier = Modifier.weight(1f),
+                            colors = ButtonDefaults.buttonColors(containerColor = accent)
+                        ) { Text("Сохранить", color = Color.White) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ChatItemMenu(
+    chatId: String,
+    labels: List<ChatLabel>,
+    chatLabels: Map<String, List<String>>,
+    folders: List<ChatFolder>,
+    onAddLabel: (String) -> Unit,
+    onAddToFolder: (String) -> Unit,
+    onCreateFolder: () -> Unit,
+    onManageLabels: () -> Unit,
+    onArchiveToggle: () -> Unit,
+    isArchived: Boolean,
+    onDismiss: () -> Unit,
+    theme: AppTheme
+) {
+    val context = LocalContext.current
+    val surface = ThemeManager.parseColor(theme.surfaceColor)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    var showLabels by remember { mutableStateOf(false) }
+    var showFolders by remember { mutableStateOf(false) }
+    var linkCopied by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+
+    val currentLabels = chatLabels[chatId] ?: emptyList()
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(surface)) {
+            Column(modifier = Modifier.padding(16.dp).widthIn(min = 240.dp)) {
+                Text("Чат", fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 15.sp)
+                Spacer(Modifier.height(10.dp))
+
+                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { showLabels = !showLabels }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Label, null, tint = accent, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Метка", color = textPrimary, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    Icon(if (showLabels) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = textSecondary, modifier = Modifier.size(18.dp))
+                }
+                if (showLabels) {
+                    if (labels.isEmpty()) {
+                        Text("У вас нет созданных меток", color = textSecondary, fontSize = 12.sp, modifier = Modifier.padding(start = 32.dp, bottom = 4.dp))
+                    } else {
+                        labels.forEach { label ->
+                            val hasLabel = currentLabels.contains(label.id)
+                            Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onAddLabel(label.id) }.padding(start = 32.dp, top = 6.dp, bottom = 6.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(12.dp).clip(CircleShape).background(ThemeManager.parseColor(label.color)).then(if (hasLabel) Modifier.border(2.dp, Color.White, CircleShape) else Modifier))
+                                Spacer(Modifier.width(10.dp))
+                                Text(label.name, color = textPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                if (hasLabel) Icon(Icons.Default.Check, null, tint = accent, modifier = Modifier.size(14.dp))
+                            }
+                        }
+                    }
+                    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onManageLabels(); onDismiss() }.padding(start = 32.dp, top = 6.dp, bottom = 6.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Settings, null, tint = accent, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Управление метками", color = accent, fontSize = 13.sp)
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { showFolders = !showFolders }.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Folder, null, tint = accent, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Папка", color = textPrimary, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                    Icon(if (showFolders) Icons.Default.ExpandLess else Icons.Default.ExpandMore, null, tint = textSecondary, modifier = Modifier.size(18.dp))
+                }
+                if (showFolders) {
+                    folders.filter { !it.isPreset }.forEach { folder ->
+                        val inFolder = folder.chatIds.contains(chatId)
+                        Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onAddToFolder(folder.id) }.padding(start = 32.dp, top = 6.dp, bottom = 6.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Folder, null, tint = textSecondary, modifier = Modifier.size(15.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(folder.name, color = textPrimary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                            if (inFolder) Icon(Icons.Default.Check, null, tint = accent, modifier = Modifier.size(14.dp))
+                        }
+                    }
+                    Row(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).clickable { onCreateFolder(); onDismiss() }.padding(start = 32.dp, top = 6.dp, bottom = 6.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Add, null, tint = accent, modifier = Modifier.size(15.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Новая папка", color = accent, fontSize = 13.sp)
+                    }
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            val url = "https://funpay.com/chat/?node=$chatId"
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("chat_link", url))
+                            linkCopied = true
+                            scope.launch { delay(2000); linkCopied = false }
+                        }
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (linkCopied) Icons.Default.Check else Icons.Default.Link,
+                        null,
+                        tint = if (linkCopied) Color(0xFF4CAF50) else accent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        if (linkCopied) "Ссылка скопирована" else "Копировать ссылку",
+                        color = if (linkCopied) Color(0xFF4CAF50) else textPrimary,
+                        fontSize = 14.sp
+                    )
+                }
+
+                Spacer(Modifier.height(4.dp))
+
+
+                Row(
+                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp))
+                        .clickable { onArchiveToggle(); onDismiss() }
+                        .padding(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        if (isArchived) Icons.Default.Unarchive else Icons.Default.Archive,
+                        null,
+                        tint = if (isArchived) Color(0xFFF44336) else accent,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        if (isArchived) "Убрать из архива" else "В архив",
+                        color = if (isArchived) Color(0xFFF44336) else textPrimary,
+                        fontSize = 14.sp
+                    )
+                }
+
+                Spacer(Modifier.height(8.dp))
+                TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.End)) {
+                    Text("Закрыть", color = textSecondary, fontSize = 13.sp)
+                }
+            }
+        }
+    }
+}
+
+private val labelColors = listOf(
+    "#7C4DFF", "#F44336", "#2196F3", "#4CAF50",
+    "#FF9800", "#E91E63", "#00BCD4", "#FF5722",
+    "#9C27B0", "#3F51B5", "#009688", "#CDDC39",
+    "#8BC34A", "#FF6F00", "#0097A7", "#AD1457"
+)
+
+private val presetFolderDefs = listOf(
+    ChatFolder(id = "preset_unread", name = "Непрочитанные", isPreset = true, presetType = "unread"),
+    ChatFolder(id = "preset_labeled", name = "С метками", isPreset = true, presetType = "labeled"),
+    ChatFolder(id = "preset_archived", name = "Архив", isPreset = true, presetType = "archived"),
+)
+
+@Composable
+fun ManageFoldersDialog(
+    folders: List<ChatFolder>,
+    onFoldersChanged: (List<ChatFolder>) -> Unit,
+    onDismiss: () -> Unit,
+    theme: AppTheme
+) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val surface = ThemeManager.dialogSurface(theme)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    var newFolder by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(surface)) {
+            LazyColumn(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                item {
+                    Text("Готовые группы", fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 15.sp)
+                    Spacer(Modifier.height(6.dp))
+                    presetFolderDefs.forEach { preset ->
+                        val isAdded = folders.any { it.id == preset.id }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                                .clickable { onFoldersChanged(if (isAdded) folders.filter { it.id != preset.id } else folders + preset) }
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Folder, null, tint = accent, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(preset.name, color = textPrimary, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            Icon(if (isAdded) Icons.Default.Check else Icons.Default.Add, null, tint = if (isAdded) accent else textSecondary, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
+
+                item {
+                    Text("Мои папки", fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 15.sp)
+                    Spacer(Modifier.height(6.dp))
+                    val custom = folders.filter { !it.isPreset }
+                    if (custom.isEmpty()) Text("Пока нет", color = textSecondary, fontSize = 13.sp)
+                    custom.forEach { folder ->
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Folder, null, tint = accent, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(folder.name, color = textPrimary, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { onFoldersChanged(folders.filter { it.id != folder.id }) }, modifier = Modifier.size(28.dp)) {
+                                Icon(Icons.Default.Delete, null, tint = Color(0xFFF44336), modifier = Modifier.size(15.dp))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(6.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        OutlinedTextField(value = newFolder, onValueChange = { newFolder = it }, modifier = Modifier.weight(1f),
+                            placeholder = { Text("Название папки", color = textSecondary, fontSize = 13.sp) }, singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = textSecondary.copy(alpha = 0.4f), focusedTextColor = textPrimary, unfocusedTextColor = textPrimary))
+                        IconButton(onClick = { if (newFolder.isNotBlank()) { onFoldersChanged(folders + ChatFolder(name = newFolder.trim())); newFolder = "" } }) {
+                            Icon(Icons.Default.Add, null, tint = accent)
+                        }
+                    }
+                }
+
+                item {
+                    Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = accent)) {
+                        Text("Готово", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ManageLabelsDialog(
+    labels: List<ChatLabel>,
+    onLabelsChanged: (List<ChatLabel>) -> Unit,
+    onDismiss: () -> Unit,
+    theme: AppTheme
+) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val surface = ThemeManager.dialogSurface(theme)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    var newLabel by remember { mutableStateOf("") }
+
+
+    var pickedColor by remember { mutableStateOf(labelColors.first()) }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(surface)) {
+            LazyColumn(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                item {
+                    Text("Метки пользователей", fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 15.sp)
+                    Spacer(Modifier.height(6.dp))
+                    if (labels.isEmpty()) Text("Пока нет", color = textSecondary, fontSize = 13.sp)
+                    labels.forEach { label ->
+                        Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(modifier = Modifier.size(14.dp).clip(CircleShape).background(ThemeManager.parseColor(label.color)))
+                            Spacer(Modifier.width(8.dp))
+                            Text(label.name, color = textPrimary, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                            IconButton(onClick = { onLabelsChanged(labels.filter { it.id != label.id }) }, modifier = Modifier.size(28.dp)) {
+                                Icon(Icons.Default.Delete, null, tint = Color(0xFFF44336), modifier = Modifier.size(15.dp))
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                        labelColors.forEach { hex ->
+                            Box(
+                                modifier = Modifier.padding(bottom = 6.dp).size(24.dp).clip(CircleShape)
+                                    .background(ThemeManager.parseColor(hex))
+                                    .then(if (hex == pickedColor) Modifier.border(2.dp, Color.White, CircleShape) else Modifier)
+                                    .clickable { pickedColor = hex }
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(30.dp).clip(CircleShape).background(ThemeManager.parseColor(pickedColor)))
+                        Spacer(Modifier.width(8.dp))
+                        OutlinedTextField(value = newLabel, onValueChange = { newLabel = it }, modifier = Modifier.weight(1f),
+                            placeholder = { Text("Название метки", color = textSecondary, fontSize = 13.sp) }, singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = accent, unfocusedBorderColor = textSecondary.copy(alpha = 0.4f), focusedTextColor = textPrimary, unfocusedTextColor = textPrimary))
+                        IconButton(onClick = { if (newLabel.isNotBlank()) { onLabelsChanged(labels + ChatLabel(name = newLabel.trim(), color = pickedColor)); newLabel = "" } }) {
+                            Icon(Icons.Default.Add, null, tint = accent)
+                        }
+                    }
+                }
+
+                item {
+                    Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = accent)) {
+                        Text("Готово", color = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StrictProOnlySettingCard(
+    title: String,
+    subtitle: String,
+    checked: Boolean,
+    icon: ImageVector,
+    theme: AppTheme,
+    onCheckedChange: (Boolean) -> Unit,
+    onProRequired: () -> Unit
+) {
+    val isPro = LicenseManager.isProActive()
+
+    Box(modifier = Modifier
+        .fillMaxWidth()
+        .padding(vertical = 4.dp).clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor))) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (isPro) ThemeManager.parseColor(theme.accentColor) else Color.Gray.copy(alpha = 0.5f),
+                modifier = Modifier.size(24.dp)
+            )
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = ThemeManager.parseColor(theme.textPrimaryColor)
+                )
+                if (subtitle.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        fontSize = 12.sp,
+                        color = ThemeManager.parseColor(theme.textSecondaryColor),
+                        lineHeight = 16.sp
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Box {
+                Switch(
+                    checked = checked && isPro,
+                    onCheckedChange = {
+                        if (isPro) onCheckedChange(it) else onProRequired()
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ThemeManager.parseColor(theme.accentColor),
+                        checkedTrackColor = ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.4f),
+                        uncheckedThumbColor = if (!isPro) Color.Gray.copy(alpha = 0.5f) else Color.White,
+                        uncheckedTrackColor = Color.Gray.copy(alpha = 0.2f)
+                    )
+                )
+                if (!isPro) {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "PRO",
+                        tint = ThemeManager.parseColor(theme.accentColor),
+                        modifier = Modifier.size(10.dp).align(Alignment.TopEnd)
+                    )
+                }
+            }
+        }
+    }
+}
+@Composable
+fun BusyScheduleDialog(
+    settings: BusyScheduleSettings,
+    onSave: (BusyScheduleSettings) -> Unit,
+    onDismiss: () -> Unit,
+    theme: AppTheme
+) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val surface = ThemeManager.dialogSurface(theme)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+
+    var slots by remember { mutableStateOf(settings.slots) }
+    var editingSlot by remember { mutableStateOf<BusyScheduleSlot?>(null) }
+
+    if (editingSlot != null) {
+        BusyScheduleSlotEditor(
+            slot = editingSlot!!,
+            theme = theme,
+            onSave = { updated ->
+                slots = if (slots.any { it.id == updated.id }) {
+                    slots.map { if (it.id == updated.id) updated else it }
+                } else {
+                    slots + updated
+                }
+                onSave(settings.copy(slots = slots))
+                editingSlot = null
+            },
+            onDismiss = { editingSlot = null },
+            onDelete = {
+                slots = slots.filter { it.id != editingSlot!!.id }
+                onSave(settings.copy(slots = slots))
+                editingSlot = null
+            }
+        )
+        return
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.9f).clip(RoundedCornerShape(theme.borderRadius.dp)).background(surface)) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Расписание занятости", fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onDismiss) {
+                        Icon(Icons.Default.Close, null, tint = textPrimary)
+                    }
+                }
+                Text(
+                    "Создавайте слоты: «Рабочее время Пн-Пт 09:00-18:00», «Перерыв 13:00-14:00», «Ночь 22:00-06:00» и так далее. Когда текущее время попадает в слот — режим занятости включается автоматически.",
+                    fontSize = 11.sp, color = textSecondary, lineHeight = 15.sp
+                )
+                Spacer(Modifier.height(12.dp))
+
+                Button(
+                    onClick = { editingSlot = BusyScheduleSlot() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = accent)
+                ) {
+                    Icon(Icons.Default.Add, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Добавить слот", color = Color.White)
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                if (slots.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Schedule, null, tint = textSecondary.copy(alpha = 0.5f), modifier = Modifier.size(48.dp))
+                            Spacer(Modifier.height(8.dp))
+                            Text("Нет слотов расписания", color = textSecondary, fontSize = 13.sp)
+                        }
+                    }
+                } else {
+                    LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(slots.distinctBy { it.id }, key = { it.id }) { slot ->
+                            Box(modifier = Modifier.fillMaxWidth().clickable { editingSlot = slot }.clip(RoundedCornerShape(10.dp)).background(surface.copy(alpha = 0.6f))) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(slot.name.ifBlank { "(без названия)" }, fontWeight = FontWeight.SemiBold, color = textPrimary, fontSize = 14.sp)
+                                        Spacer(Modifier.height(2.dp))
+                                        Text(
+                                            formatScheduleSlot(slot),
+                                            fontSize = 11.sp, color = textSecondary
+                                        )
+                                        if (slot.overrideMessage && slot.message.isNotBlank()) {
+                                            Text(
+                                                "Сообщение: ${slot.message.take(60)}${if (slot.message.length > 60) "…" else ""}",
+                                                fontSize = 10.sp, color = textSecondary, maxLines = 1, overflow = TextOverflow.Ellipsis
+                                            )
+                                        }
+                                    }
+                                    Icon(Icons.Default.Edit, null, tint = accent, modifier = Modifier.size(18.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = surface)
+                ) { Text("Закрыть", color = textPrimary) }
+            }
+        }
+    }
+}
+
+private fun formatScheduleSlot(slot: BusyScheduleSlot): String {
+    val dayNames = arrayOf("", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс")
+    val daysText = if (slot.days.isEmpty()) "—" else slot.days.sorted().joinToString(",") { dayNames.getOrNull(it) ?: "?" }
+    val startH = slot.startMinute / 60
+    val startM = slot.startMinute % 60
+    val endH = slot.endMinute / 60
+    val endM = slot.endMinute % 60
+    val timeText = String.format("%02d:%02d – %02d:%02d", startH, startM, endH, endM)
+    val overnight = if (slot.endMinute <= slot.startMinute) " (через ночь)" else ""
+    return "$daysText · $timeText$overnight"
+}
+
+@Composable
+fun BusyScheduleSlotEditor(
+    slot: BusyScheduleSlot,
+    theme: AppTheme,
+    onSave: (BusyScheduleSlot) -> Unit,
+    onDismiss: () -> Unit,
+    onDelete: () -> Unit
+) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val surface = ThemeManager.parseColor(theme.surfaceColor)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+
+    var name by remember { mutableStateOf(slot.name) }
+    var days by remember { mutableStateOf(slot.days.toSet()) }
+    var startMinute by remember { mutableIntStateOf(slot.startMinute) }
+    var endMinute by remember { mutableIntStateOf(slot.endMinute) }
+    var overrideMessage by remember { mutableStateOf(slot.overrideMessage) }
+    var message by remember { mutableStateOf(slot.message) }
+    var overrideCooldown by remember { mutableStateOf(slot.overrideCooldown) }
+    var cooldownMinutes by remember { mutableIntStateOf(slot.cooldownMinutes) }
+
+    val dayLabels = listOf(
+        1 to "Пн", 2 to "Вт", 3 to "Ср", 4 to "Чт", 5 to "Пт", 6 to "Сб", 7 to "Вс"
+    )
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(modifier = Modifier.fillMaxWidth(0.95f).fillMaxHeight(0.9f).clip(RoundedCornerShape(theme.borderRadius.dp)).background(surface)) {
+            Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("Слот расписания", fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 17.sp, modifier = Modifier.weight(1f))
+                    IconButton(onClick = onDismiss) { Icon(Icons.Default.Close, null, tint = textPrimary) }
+                }
+
+                LazyColumn(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    item {
+                        OutlinedTextField(
+                            value = name, onValueChange = { name = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Название слота (Рабочее время, Перерыв, Ночь…)") },
+                            singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedTextColor = textPrimary, unfocusedTextColor = textPrimary,
+                                focusedBorderColor = accent, cursorColor = accent
+                            )
+                        )
+                    }
+                    item {
+                        Text("Дни недели:", color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(4.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            dayLabels.forEach { (num, label) ->
+                                val isSel = days.contains(num)
+                                FilterChip(
+                                    selected = isSel,
+                                    onClick = {
+                                        days = if (isSel) days - num else days + num
+                                    },
+                                    label = { Text(label, fontSize = 11.sp) },
+                                    modifier = Modifier.weight(1f),
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = accent,
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                            }
+                        }
+                        Row(modifier = Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            TextButton(onClick = { days = setOf(1, 2, 3, 4, 5) }) { Text("Будни", color = accent, fontSize = 11.sp) }
+                            TextButton(onClick = { days = setOf(6, 7) }) { Text("Выходные", color = accent, fontSize = 11.sp) }
+                            TextButton(onClick = { days = setOf(1, 2, 3, 4, 5, 6, 7) }) { Text("Каждый день", color = accent, fontSize = 11.sp) }
+                        }
+                    }
+
+                    item {
+                        val startH = startMinute / 60
+                        val startM = startMinute % 60
+                        Text("Начало: ${String.format("%02d:%02d", startH, startM)}", color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Slider(
+                            value = startMinute.toFloat(),
+                            onValueChange = { startMinute = it.toInt().coerceIn(0, 1439) },
+                            valueRange = 0f..1439f,
+                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf(0, 6, 9, 12, 14, 18, 22).forEach { h ->
+                                TextButton(onClick = { startMinute = h * 60 }, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)) {
+                                    Text("${h}:00", color = accent, fontSize = 10.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    item {
+                        val endH = endMinute / 60
+                        val endM = endMinute % 60
+                        Text("Конец: ${String.format("%02d:%02d", endH, endM)}", color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                        Slider(
+                            value = endMinute.toFloat(),
+                            onValueChange = { endMinute = it.toInt().coerceIn(0, 1439) },
+                            valueRange = 0f..1439f,
+                            colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
+                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            listOf(6, 9, 12, 14, 18, 22, 23).forEach { h ->
+                                TextButton(onClick = { endMinute = h * 60 }, contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)) {
+                                    Text("${h}:00", color = accent, fontSize = 10.sp)
+                                }
+                            }
+                        }
+                        if (endMinute <= startMinute) {
+                            Text("⚠️ Слот перекатывается через полночь: с ${String.format("%02d:%02d", startMinute / 60, startMinute % 60)} до ${String.format("%02d:%02d", endMinute / 60, endMinute % 60)} следующего дня.",
+                                fontSize = 10.sp, color = Color(0xFFFFB74D), lineHeight = 13.sp
+                            )
+                        }
+                    }
+
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Свой текст для этого слота", color = textPrimary, fontSize = 13.sp)
+                                Text("Если выключено — используется текст из основного режима занятости.", color = textSecondary, fontSize = 10.sp, lineHeight = 13.sp)
+                            }
+                            Switch(
+                                checked = overrideMessage,
+                                onCheckedChange = { overrideMessage = it },
+                                colors = SwitchDefaults.colors(checkedThumbColor = accent, checkedTrackColor = accent.copy(alpha = 0.4f))
+                            )
+                        }
+                        if (overrideMessage) {
+                            Spacer(Modifier.height(4.dp))
+                            OutlinedTextField(
+                                value = message, onValueChange = { message = it },
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("Сообщение покупателю", fontSize = 11.sp) },
+                                minLines = 2,
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = textPrimary, unfocusedTextColor = textPrimary,
+                                    focusedBorderColor = accent, cursorColor = accent
+                                )
+                            )
+                        }
+                    }
+
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Свой интервал повтора", color = textPrimary, fontSize = 13.sp)
+                                Text("Если выключено — используется интервал из основного режима.", color = textSecondary, fontSize = 10.sp, lineHeight = 13.sp)
+                            }
+                            Switch(
+                                checked = overrideCooldown,
+                                onCheckedChange = { overrideCooldown = it },
+                                colors = SwitchDefaults.colors(checkedThumbColor = accent, checkedTrackColor = accent.copy(alpha = 0.4f))
+                            )
+                        }
+                        if (overrideCooldown) {
+                            Spacer(Modifier.height(4.dp))
+                            Text("Повторять не чаще: $cooldownMinutes мин", color = textPrimary, fontSize = 12.sp)
+                            Slider(
+                                value = cooldownMinutes.toFloat(),
+                                onValueChange = { cooldownMinutes = it.toInt() },
+                                valueRange = 0f..480f, steps = 47,
+                                colors = SliderDefaults.colors(thumbColor = accent, activeTrackColor = accent)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = onDelete,
+                        modifier = Modifier.weight(1f),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFFF5252))
+                    ) { Text("Удалить") }
+                    Button(
+                        onClick = {
+                            onSave(
+                                slot.copy(
+                                    name = name.trim().ifBlank { "Слот" },
+                                    days = days.sorted(),
+                                    startMinute = startMinute,
+                                    endMinute = endMinute,
+                                    overrideMessage = overrideMessage,
+                                    message = message,
+                                    overrideCooldown = overrideCooldown,
+                                    cooldownMinutes = cooldownMinutes
+                                )
+                            )
+                        },
+                        modifier = Modifier.weight(2f),
+                        colors = ButtonDefaults.buttonColors(containerColor = accent)
+                    ) { Text("Сохранить", color = Color.White) }
+                }
+            }
+        }
+    }
+}
+
+
+
+@Composable
+fun ReadMarkSettingsDialog(
+    settings: ReadMarkSettings,
+    theme: AppTheme,
+    onSave: (ReadMarkSettings) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    val surface = ThemeManager.dialogSurface(theme)
+    var s by remember { mutableStateOf(settings) }
+
+    @Composable
+    fun ToggleRow(label: String, hint: String, checked: Boolean, onToggle: () -> Unit) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onToggle() }
+                .padding(vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(label, color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                if (hint.isNotBlank()) Text(hint, color = textSecondary, fontSize = 11.sp, lineHeight = 13.sp)
+            }
+            Spacer(Modifier.width(8.dp))
+            Switch(
+                checked = checked,
+                onCheckedChange = { onToggle() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = accent,
+                    checkedTrackColor = accent.copy(alpha = 0.4f)
+                )
+            )
+        }
+    }
+
+    Dialog(onDismissRequest = { onSave(s); onDismiss() }) {
+        Box(modifier = Modifier.clip(RoundedCornerShape(theme.borderRadius.dp)).background(surface)) {
+            Column(modifier = Modifier.padding(20.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.VisibilityOff, null, tint = accent, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("Нечиталка", fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 16.sp)
+                        Text("Детальная настройка, какие сообщения приложению читать, а какие нет",
+                            fontSize = 11.sp, color = textSecondary, lineHeight = 13.sp)
+                    }
+                }
+                Spacer(Modifier.height(14.dp))
+
+                Column(modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false)) {
+                    Text("Бот пишет → читать?", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = textSecondary.copy(alpha = 0.2f))
+
+                    ToggleRow("После автоответа на команду",
+                        "Команда покупателя → бот ответил → пометить прочитанным",
+                        s.markAfterAutoReply) { s = s.copy(markAfterAutoReply = !s.markAfterAutoReply) }
+
+                    ToggleRow("После приветствия",
+                        "Бот отправил первое приветствие покупателю",
+                        s.markAfterGreeting) { s = s.copy(markAfterGreeting = !s.markAfterGreeting) }
+
+                    ToggleRow("После ответа в режиме занятости",
+                        "Рекомендуется выкл. — покупатель ждёт, пусть чат остаётся непрочитанным",
+                        s.markAfterBusyReply) { s = s.copy(markAfterBusyReply = !s.markAfterBusyReply) }
+
+                    ToggleRow("После ответа на отзыв",
+                        "Бот ответил на отзыв покупателя",
+                        s.markAfterReviewReply) { s = s.copy(markAfterReviewReply = !s.markAfterReviewReply) }
+
+                    ToggleRow("После просьбы оставить отзыв",
+                        "Бот написал просьбу после подтверждения заказа",
+                        s.markAfterOrderConfirm) { s = s.copy(markAfterOrderConfirm = !s.markAfterOrderConfirm) }
+
+                    ToggleRow("После автовозврата",
+                        "Бот выполнил возврат и написал покупателю",
+                        s.markAfterAutoRefund) { s = s.copy(markAfterAutoRefund = !s.markAfterAutoRefund) }
+
+                    ToggleRow("После напоминания об оплате",
+                        "Бот напомнил покупателю оплатить заказ",
+                        s.markAfterOrderReminder) { s = s.copy(markAfterOrderReminder = !s.markAfterOrderReminder) }
+
+                    ToggleRow("После бонуса за отзыв",
+                        "Бот отправил бонусное сообщение по правилу",
+                        s.markAfterBonusMessage) { s = s.copy(markAfterBonusMessage = !s.markAfterBonusMessage) }
+
+                    Spacer(Modifier.height(10.dp))
+                    Text("Я пишу → читать?", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = textSecondary.copy(alpha = 0.2f))
+
+                    ToggleRow("После моего ручного ответа",
+                        "Ты сам отправил сообщение из приложения",
+                        s.markAfterManualReply) { s = s.copy(markAfterManualReply = !s.markAfterManualReply) }
+
+                    Spacer(Modifier.height(10.dp))
+                    Text("Системные события", color = accent, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = textSecondary.copy(alpha = 0.2f))
+
+                    ToggleRow("Не читать системные события FunPay",
+                        "Оплата, подтверждение, отзыв, отмена — оставлять непрочитанными",
+                        s.neverMarkSystemEvents) { s = s.copy(neverMarkSystemEvents = !s.neverMarkSystemEvents) }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = { onSave(s); onDismiss() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = accent)
+                ) { Text("Сохранить", color = Color.White) }
+            }
+        }
+    }
+}
+
+
+
+
+@Composable
+fun AiVarPermissionsDialog(
+    settings: AiVarPermissions,
+    theme: AppTheme,
+    onSave: (AiVarPermissions) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val accent = ThemeManager.parseColor(theme.accentColor)
+    val textPrimary = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSecondary = ThemeManager.parseColor(theme.textSecondaryColor)
+    val surface = ThemeManager.dialogSurface(theme)
+    var s by remember { mutableStateOf(settings) }
+
+    @Composable
+    fun SectionHeader(title: String, subtitle: String) {
+        Spacer(Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.Psychology, null, tint = accent, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(6.dp))
+            Column {
+                Text(title, color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(subtitle, color = textSecondary, fontSize = 10.sp, lineHeight = 12.sp)
+            }
+        }
+        HorizontalDivider(modifier = Modifier.padding(top = 4.dp, bottom = 2.dp), color = textSecondary.copy(alpha = 0.2f))
+    }
+
+    @Composable
+    fun VarRow(varName: String, label: String, hint: String, checked: Boolean, onToggle: () -> Unit) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onToggle() }
+                .padding(vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        varName,
+                        color = accent,
+                        fontSize = 11.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier
+                            .background(accent.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 5.dp, vertical = 2.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(label, color = textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                }
+                if (hint.isNotBlank()) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(hint, color = textSecondary, fontSize = 11.sp, lineHeight = 13.sp)
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+            Switch(
+                checked = checked,
+                onCheckedChange = { onToggle() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = accent,
+                    checkedTrackColor = accent.copy(alpha = 0.4f)
+                )
+            )
+        }
+    }
+
+    Dialog(onDismissRequest = { onSave(s); onDismiss() }) {
+        Box(modifier = Modifier.clip(RoundedCornerShape(theme.borderRadius.dp)).background(surface)) {
+            Column(modifier = Modifier.padding(20.dp)) {
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Psychology, null, tint = accent, modifier = Modifier.size(24.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text("ИИ-переменные", fontWeight = FontWeight.Bold, color = textPrimary, fontSize = 16.sp)
+                        Text("Управляй тем, какие данные уходят на сервер ИИ",
+                            fontSize = 11.sp, color = textSecondary, lineHeight = 13.sp)
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
+                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(accent.copy(alpha = 0.1f))) {
+                    Text(
+                        "⚠️ Данные настройки не рекомендуются модифицировать обычным пользователям.",
+                        modifier = Modifier.padding(10.dp),
+                        fontSize = 11.sp, color = textSecondary, lineHeight = 14.sp
+                    )
+                }
+
+                Column(modifier = Modifier.verticalScroll(rememberScrollState()).weight(1f, fill = false)) {
+
+
+                    SectionHeader(
+                        "ИИ-переписыватель (кнопка ✨ в чате)",
+                        "Данные, которые ИИ видит когда ты жмёшь «переписать черновик»"
+                    )
+
+                    VarRow("\$history", "История переписки",
+                        "Последние 10 сообщений чата — контекст разговора",
+                        s.allowChatHistory) { s = s.copy(allowChatHistory = !s.allowChatHistory) }
+
+                    VarRow("\$username", "Имя покупателя",
+                        "Ник собеседника на FunPay",
+                        s.allowUsername) { s = s.copy(allowUsername = !s.allowUsername) }
+
+                    VarRow("\$message_text", "Последнее сообщение",
+                        "Текст входящего сообщения для контекста",
+                        s.allowMessageText) { s = s.copy(allowMessageText = !s.allowMessageText) }
+
+                    VarRow("\$chat_id", "ID чата",
+                        "Числовой идентификатор чата",
+                        s.allowChatId) { s = s.copy(allowChatId = !s.allowChatId) }
+
+                    VarRow("\$order_id", "ID заказа",
+                        "Номер заказа (если есть в контексте)",
+                        s.allowOrderId) { s = s.copy(allowOrderId = !s.allowOrderId) }
+
+                    VarRow("\$lot_name", "Название лота",
+                        "Название товара/услуги из заказа",
+                        s.allowLotName) { s = s.copy(allowLotName = !s.allowLotName) }
+
+
+                    SectionHeader(
+                        "ИИ-автоответ на отзывы",
+                        "Данные, которые ИИ видит когда генерирует ответ на отзыв покупателя"
+                    )
+
+                    VarRow("\$review_text", "Текст отзыва",
+                        "Что именно написал покупатель в отзыве",
+                        s.allowReviewText) { s = s.copy(allowReviewText = !s.allowReviewText) }
+
+                    VarRow("\$stars", "Оценка (звёзды)",
+                        "Количество звёзд, которые поставил покупатель (1–5)",
+                        s.allowReviewStars) { s = s.copy(allowReviewStars = !s.allowReviewStars) }
+
+                    Box(modifier = Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(8.dp)).background(textSecondary.copy(alpha = 0.08f))) {
+                        Text(
+                            "ℹ️ Название лота и дата для автоответов на отзывы настраиваются в разделе «Автоответ на отзывы → Настроить»",
+                            modifier = Modifier.padding(10.dp),
+                            fontSize = 10.sp, color = textSecondary, lineHeight = 13.sp
+                        )
+                    }
+                }
+
+
+                Spacer(Modifier.height(14.dp))
+                Button(
+                    onClick = { onSave(s); onDismiss() },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = accent)
+                ) { Text("Сохранить", color = Color.White) }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun LotScreen(
+    offerId: String,
+    repository: FunPayRepository,
+    theme: AppTheme,
+    navController: NavController
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    var lot by remember { mutableStateOf<LotPreview?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+
+    var amountText by remember { mutableStateOf("1") }
+    var amount by remember { mutableStateOf(1) }
+    var selectedMethod by remember { mutableStateOf<PaymentMethod?>(null) }
+
+    var draftOrder by remember { mutableStateOf<DraftOrder?>(null) }
+    var isProcessing by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var externalPayUrl by remember { mutableStateOf<String?>(null) }
+
+    val myUserId = remember { repository.getMyUserId() }
+
+    LaunchedEffect(offerId) {
+        loading = true
+        loadError = null
+        try {
+            lot = repository.fetchLotPreview(offerId)
+            if (lot == null) {
+                loadError = "Лот не найден. Возможно, он удалён или требуется авторизация."
+            } else if (lot?.isAvailable == false) {
+                loadError = lot?.unavailableReason ?: "Покупка сейчас недоступна"
+            } else {
+                selectedMethod = lot?.paymentMethods?.firstOrNull()
+            }
+        } catch (e: Exception) {
+            loadError = "Ошибка: ${e.message}"
+        }
+        loading = false
+    }
+
+
+    val totalLocalPrice = (selectedMethod?.priceValue ?: 0.0) * amount
+    val localBalance = if (selectedMethod?.unit == "₽" || selectedMethod?.unit == "RUB") lot?.balanceRub ?: 0.0 else lot?.balanceUsd ?: 0.0
+    val localDeducted = minOf(localBalance, totalLocalPrice)
+    val localLeftToPay = totalLocalPrice - localDeducted
+
+    val isMyLot = remember(lot, myUserId) {
+        myUserId.isNotEmpty() && lot?.sellerId?.isNotEmpty() == true && lot?.sellerId == myUserId
+    }
+
+    Scaffold(
+        containerColor = Color.Transparent,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        lot?.title ?: "Лот #$offerId",
+                        color = ThemeManager.parseColor(theme.textPrimaryColor),
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = ThemeManager.parseColor(theme.accentColor))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = ThemeManager.parseColor(theme.surfaceColor))
+            )
+        }
+    ) { scaffoldPadding ->
+        Box(Modifier.fillMaxSize().padding(scaffoldPadding)) {
+            when {
+                loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = ThemeManager.parseColor(theme.accentColor))
+                }
+                isMyLot -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.Store, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(56.dp))
+                        Spacer(Modifier.height(16.dp))
+                        Text("Это ваш лот", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                        Spacer(Modifier.height(8.dp))
+                        Text("Нельзя купить собственный лот", fontSize = 13.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                        Spacer(Modifier.height(20.dp))
+                        Button(
+                            onClick = { navController.navigate("lot_edit/$offerId") },
+                            colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor)),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("Редактировать лот")
+                        }
+                    }
+                }
+                loadError != null && lot == null -> Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(loadError!!, color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 14.sp)
+                    }
+                }
+
+
+                draftOrder != null -> {
+                    Column(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.Center) {
+                        Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(ThemeManager.parseColor(theme.surfaceColor))) {
+                            Column(Modifier.padding(20.dp)) {
+                                Text(draftOrder!!.title, fontWeight = FontWeight.Bold, fontSize = 20.sp, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                                Spacer(Modifier.height(16.dp))
+
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("С баланса спишется:", color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 14.sp)
+                                    Text(draftOrder!!.deductedFromBalance, color = ThemeManager.parseColor(theme.textPrimaryColor), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                    Text("Останется доплатить:", color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 14.sp)
+                                    Text(draftOrder!!.leftToPay, color = ThemeManager.parseColor(theme.accentColor), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                                }
+
+                                if (errorMessage != null) {
+                                    Spacer(Modifier.height(12.dp))
+                                    Text(errorMessage!!, color = Color.Red, fontSize = 13.sp)
+                                }
+
+                                Spacer(Modifier.height(24.dp))
+
+                                if (externalPayUrl != null) {
+                                    Button(
+                                        onClick = {
+                                            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(externalPayUrl!!))) } catch (_: Exception) {}
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                                    ) { Text("Открыть страницу оплаты", fontWeight = FontWeight.Bold) }
+                                } else {
+                                    Button(
+                                        onClick = {
+                                            if (isProcessing) return@Button
+                                            scope.launch {
+                                                isProcessing = true
+                                                errorMessage = null
+                                                val res = repository.payDraftOrder(draftOrder!!)
+                                                res.onSuccess { result ->
+                                                    if (result is OrderNewResult.Redirect) {
+                                                        if (!result.orderUrl.contains("funpay.com/orders/")) {
+                                                            externalPayUrl = result.orderUrl
+                                                            try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(result.orderUrl))) } catch (_: Exception) {}
+                                                        } else if (result.orderId.isNotEmpty()) {
+                                                            navController.navigate("order/${result.orderId}") {
+                                                                popUpTo("lot/$offerId") { inclusive = true }
+                                                            }
+                                                        }
+                                                    }
+                                                }.onFailure { e ->
+                                                    errorMessage = e.message
+                                                }
+                                                isProcessing = false
+                                            }
+                                        },
+                                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                                        enabled = !isProcessing,
+                                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                                    ) {
+                                        if (isProcessing) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                                        else Text("Оплатить", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    }
+                                }
+                                Spacer(Modifier.height(12.dp))
+                                OutlinedButton(
+                                    onClick = { draftOrder = null; externalPayUrl = null; errorMessage = null },
+                                    modifier = Modifier.fillMaxWidth().height(48.dp)
+                                ) { Text("Отменить", color = ThemeManager.parseColor(theme.textSecondaryColor)) }
+                            }
+                        }
+                    }
+                }
+
+
+                lot != null -> {
+                    val l = lot!!
+                    LazyColumn(modifier = Modifier.fillMaxSize().padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        item {
+                            Column {
+                                if (l.shortDesc.isNotBlank()) {
+                                    Text(l.shortDesc, fontSize = 13.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                                    Spacer(Modifier.height(6.dp))
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    AsyncImage(model = l.sellerAvatar, contentDescription = null, modifier = Modifier.size(28.dp).clip(CircleShape), contentScale = ContentScale.Crop)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        l.sellerName.ifEmpty { "Продавец" },
+                                        fontSize = 13.sp, fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor),
+                                        modifier = Modifier.weight(1f).clickable { if (l.sellerId.isNotEmpty()) navController.navigate("user/${l.sellerId}/${Uri.encode(l.sellerName.ifBlank { "Продавец" })}") }
+                                    )
+                                    if (l.priceText.isNotBlank()) {
+                                        Text(l.priceText, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = ThemeManager.parseColor(theme.accentColor))
+                                    }
+                                }
+                            }
+                        }
+
+                        if (l.params.isNotEmpty()) {
+                            item {
+                                Box(modifier = Modifier.clip(RoundedCornerShape(theme.borderRadius.dp)).background(ThemeManager.parseColor(theme.surfaceColor))) {
+                                    Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                                        l.params.forEach { (k, v) ->
+                                            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+                                                Text(k, modifier = Modifier.weight(1f), fontSize = 12.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                                                Text(v, modifier = Modifier.weight(2f), fontSize = 12.sp, color = ThemeManager.parseColor(theme.textPrimaryColor))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        item {
+                            Text("Количество", color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 12.sp)
+                            OutlinedTextField(
+                                value = amountText,
+                                onValueChange = { new ->
+                                    amountText = new.filter { it.isDigit() }.take(4).ifEmpty { "" }
+                                    amount = amountText.toIntOrNull()?.coerceAtLeast(1) ?: 1
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                    unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                    focusedBorderColor = ThemeManager.parseColor(theme.accentColor)
+                                )
+                            )
+                        }
+
+                        item {
+                            Box(modifier = Modifier.clip(RoundedCornerShape(0.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(alpha = 0.5f))) {
+                                Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("С баланса спишется:", color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 12.sp)
+                                        Text("${String.format(Locale.US, "%.2f", localDeducted)} ${selectedMethod?.unit ?: ""}", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 12.sp)
+                                    }
+                                    Spacer(Modifier.height(4.dp))
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Text("Останется оплатить:", color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 12.sp)
+                                        Text("${String.format(Locale.US, "%.2f", localLeftToPay)} ${selectedMethod?.unit ?: ""}", color = ThemeManager.parseColor(theme.accentColor), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                    }
+                                }
+                            }
+                        }
+
+                        item {
+                            Text("Способ оплаты", color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                        }
+                        items(l.paymentMethods) { m ->
+                            val selected = selectedMethod?.id == m.id
+                            val bg = if (selected) ThemeManager.parseColor(theme.accentColor).copy(alpha = 0.2f) else ThemeManager.parseColor(theme.surfaceColor)
+                            Box(modifier = Modifier.fillMaxWidth().clickable { selectedMethod = m }.clip(RoundedCornerShape(theme.borderRadius.dp)).background(bg)) {
+                                Row(modifier = Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Text(m.title, modifier = Modifier.weight(1f), color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 13.sp)
+                                    Text(m.priceStr, color = ThemeManager.parseColor(theme.accentColor), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                }
+                            }
+                        }
+
+                        if (errorMessage != null) {
+                            item {
+                                Box(modifier = Modifier.clip(RoundedCornerShape(0.dp)).background(Color.Red.copy(alpha = 0.15f))) {
+                                    Text(errorMessage!!, modifier = Modifier.padding(12.dp), color = Color.Red, fontSize = 12.sp)
+                                }
+                            }
+                        }
+
+                        item {
+                            Button(
+                                onClick = {
+                                    if (isProcessing) return@Button
+                                    val m = selectedMethod ?: run { errorMessage = "Выберите способ оплаты"; return@Button }
+                                    scope.launch {
+                                        isProcessing = true
+                                        errorMessage = null
+                                        val result = repository.checkoutDraftOrder(l, m.id, amount, totalLocalPrice)
+                                        result.onSuccess { draft ->
+                                            draftOrder = draft
+                                        }.onFailure { e ->
+                                            errorMessage = e.message
+                                        }
+                                        isProcessing = false
+                                    }
+                                },
+                                modifier = Modifier.fillMaxWidth().height(48.dp),
+                                enabled = selectedMethod != null && !isProcessing,
+                                colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                            ) {
+                                if (isProcessing) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                                else Text("Оформить заказ", color = Color.White, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        item { Spacer(Modifier.height(24.dp)) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+
+@Composable
+fun BuyerHistoryScreen(
+    partnerName: String,
+    partnerId: String,
+    repository: FunPayRepository,
+    theme: AppTheme,
+    navController: NavController
+) {
+    val scope = rememberCoroutineScope()
+    var items by remember { mutableStateOf<List<FunPayRepository.OrderSummaryItem>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+
+    val accent  = ThemeManager.parseColor(theme.accentColor)
+    val textPri = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSec = ThemeManager.parseColor(theme.textSecondaryColor)
+    val surf    = ThemeManager.parseColor(theme.surfaceColor)
+
+    LaunchedEffect(partnerName) {
+        isLoading  = true
+        loadError  = null
+        try {
+
+            var result = repository.getOrdersWithBuyer(partnerName, isSales = true)
+
+            if (result.isEmpty()) result = repository.getOrdersWithBuyer(partnerName, isSales = false)
+            items = result
+        } catch (e: Exception) {
+            loadError = e.message
+        }
+        isLoading = false
+    }
+
+    Box(modifier = Modifier.fillMaxSize()) {
+        when {
+            isLoading -> CircularProgressIndicator(
+                modifier = Modifier.align(Alignment.Center),
+                color = accent
+            )
+            loadError != null -> Column(
+                modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Default.ErrorOutline, null, tint = Color.Red, modifier = Modifier.size(48.dp))
+                Spacer(Modifier.height(12.dp))
+                Text(loadError!!, color = textSec, fontSize = 14.sp)
+                Spacer(Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        isLoading = true
+                        loadError = null
+                        scope.launch {
+                            try {
+                                var r = repository.getOrdersWithBuyer(partnerName, isSales = true)
+                                if (r.isEmpty()) r = repository.getOrdersWithBuyer(partnerName, isSales = false)
+                                items = r
+                            } catch (e: Exception) { loadError = e.message }
+                            isLoading = false
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = accent)
+                ) { Text("Повторить") }
+            }
+            items.isEmpty() -> Column(
+                modifier = Modifier.align(Alignment.Center).padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Icon(Icons.Default.SearchOff, null, tint = textSec.copy(0.5f), modifier = Modifier.size(56.dp))
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    "Заказов с $partnerName не найдено",
+                    color = textSec,
+                    fontSize = 15.sp,
+                    textAlign = TextAlign.Center
+                )
+            }
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                item {
+                    Text(
+                        "Найдено заказов: ${items.size}",
+                        color = textSec,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp)
+                    )
+                }
+                items(items.distinctBy { it.orderId }, key = { it.orderId }) { order ->
+                    Box(modifier = Modifier.fillMaxWidth().clickable {
+                        navController.navigate("order/${order.orderId}")
+                    }.clip(RoundedCornerShape(theme.borderRadius.dp)).background(surf)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    order.title.ifEmpty { "Заказ #${order.orderId}" },
+                                    color = textPri,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (order.date.isNotEmpty()) {
+                                    Text(order.date, color = textSec, fontSize = 11.sp,
+                                        modifier = Modifier.padding(top = 2.dp))
+                                }
+                                if (order.status.isNotEmpty()) {
+                                    Text(
+                                        order.status,
+                                        color = if (order.status.contains("закрыт", true) ||
+                                            order.status.contains("closed", true))
+                                            Color(0xFF4CAF50) else Color(0xFFFFC107),
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.width(12.dp))
+                            Column(horizontalAlignment = Alignment.End) {
+                                Text(
+                                    order.price,
+                                    color = accent,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    "#${order.orderId}",
+                                    color = textSec,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SalesScreen(
+    repository: FunPayRepository,
+    theme: AppTheme,
+    navController: NavController
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val prefs = remember {
+        context.getSharedPreferences("sales_cache", Context.MODE_PRIVATE)
+    }
+
+    var allSales   by remember { mutableStateOf(repository.cachedSales) }
+    var isLoading  by remember { mutableStateOf(false) }
+    var isFullLoad by remember { mutableStateOf(repository.isSalesFullLoaded) }
+    var totalLoaded by remember { mutableIntStateOf(repository.cachedSales.size) }
+    var errorMsg   by remember { mutableStateOf<String?>(null) }
+    var filterStatus by remember { mutableStateOf("all") }
+    var filterQuery  by remember { mutableStateOf("") }
+    var showFilter   by remember { mutableStateOf(false) }
+
+    val accent  = ThemeManager.parseColor(theme.accentColor)
+    val textPri = ThemeManager.parseColor(theme.textPrimaryColor)
+    val textSec = ThemeManager.parseColor(theme.textSecondaryColor)
+    val surf    = ThemeManager.parseColor(theme.surfaceColor)
+    val bg      = ThemeManager.parseColor(theme.backgroundColor)
+
+    val filteredSales: List<FunPayRepository.SaleItem> = remember(
+        allSales, filterStatus, filterQuery
+    ) {
+        allSales.filter { s ->
+            (filterStatus == "all" || s.status == filterStatus) &&
+                    (filterQuery.isEmpty() ||
+                            s.buyerName.contains(filterQuery, ignoreCase = true) ||
+                            s.description.contains(filterQuery, ignoreCase = true) ||
+                            s.orderId.contains(filterQuery, ignoreCase = true))
+        }
+    }
+
+    val filteredStats: FunPayRepository.SalesStats? = remember(filteredSales) {
+        if (filteredSales.isEmpty()) null
+        else repository.computeSalesStats(filteredSales)
+    }
+
+    fun startLoad(isUserRefresh: Boolean = false) {
+        if (isLoading) return
+
+        val alreadyFull = repository.isSalesFullLoaded
+
+
+        if (!isUserRefresh && alreadyFull && repository.cachedSales.isNotEmpty()) {
+            allSales = repository.cachedSales
+            isFullLoad = true
+            totalLoaded = allSales.size
+            return
+        }
+
+        scope.launch {
+            isLoading = true
+            errorMsg = null
+
+
+            val buf = repository.cachedSales.toMutableList()
+            var token: String? = null
+
+
+
+
+            val stopOnDuplicate = alreadyFull
+
+            while (true) {
+                val result = try { repository.fetchSalesPage(token) } catch (e: Exception) {
+                    errorMsg = e.message; null
+                }
+                if (result == null) break
+
+                val page = result.first
+                val next = result.second
+
+                val existingIds = buf.map { it.orderId }.toSet()
+                val newOrders = page.filter { it.orderId !in existingIds }
+
+                if (stopOnDuplicate && newOrders.isEmpty() && page.isNotEmpty()) {
+                    repository.isSalesFullLoaded = true
+                    break
+                }
+
+                if (stopOnDuplicate && newOrders.isNotEmpty()) {
+
+                    buf.addAll(0, newOrders)
+                } else {
+
+                    buf.addAll(newOrders)
+                }
+
+
+                allSales = buf.toList()
+                totalLoaded = buf.size
+
+                token = next
+                if (next == null) {
+                    repository.isSalesFullLoaded = true
+                    break
+                }
+                delay(400)
+            }
+
+            prefs.edit().putLong("last_load", System.currentTimeMillis()).apply()
+            repository.cachedSales = allSales
+            isFullLoad = repository.isSalesFullLoaded
+            isLoading = false
+        }
+    }
+
+    val lastLoad = remember { prefs.getLong("last_load", 0L) }
+    val hoursAgo: Long = remember(lastLoad) {
+        if (lastLoad == 0L) -1L
+        else (System.currentTimeMillis() - lastLoad) / 3_600_000L
+    }
+
+
+    LaunchedEffect(Unit) { startLoad(isUserRefresh = false) }
+
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(36_000_000L)
+            startLoad(isUserRefresh = true)
+        }
+    }
+
+    Column(Modifier.fillMaxSize().background(bg)) {
+
+
+        Surface(color = surf, modifier = Modifier.fillMaxWidth()) {
+            Column {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Мои продажи", fontSize = 20.sp, fontWeight = FontWeight.Bold,
+                        color = textPri, modifier = Modifier.weight(1f)
+                    )
+                    if (isLoading) {
+                        Text(
+                            "$totalLoaded заказов", fontSize = 11.sp, color = textSec,
+                            modifier = Modifier.padding(end = 8.dp)
+                        )
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp), color = accent, strokeWidth = 2.dp
+                        )
+                    } else {
+                        val ageStr = when {
+                            hoursAgo < 0L  -> ""
+                            hoursAgo == 0L -> "только что"
+                            else           -> "${hoursAgo}ч назад"
+                        }
+                        if (ageStr.isNotEmpty()) {
+                            Text(ageStr, fontSize = 10.sp, color = textSec,
+                                modifier = Modifier.padding(end = 6.dp))
+                        }
+                        IconButton(onClick = { startLoad(isUserRefresh = true) }, modifier = Modifier.size(36.dp)) {
+                            Icon(Icons.Default.Refresh, null, tint = accent,
+                                modifier = Modifier.size(20.dp))
+                        }
+                    }
+                    IconButton(
+                        onClick = { showFilter = !showFilter },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(Icons.Default.Search, null,
+                            tint = if (filterStatus != "all" || filterQuery.isNotEmpty())
+                                accent else textSec,
+                            modifier = Modifier.size(20.dp))
+                    }
+                }
+
+                if (isLoading) {
+                    LinearProgressIndicator(Modifier.fillMaxWidth(),
+                        color = accent, trackColor = surf)
+                }
+
+                AnimatedVisibility(visible = showFilter) {
+                    Column(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                        OutlinedTextField(
+                            value = filterQuery,
+                            onValueChange = { filterQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            placeholder = { Text("Покупатель, товар или #заказ", fontSize = 13.sp) },
+                            singleLine = true,
+                            leadingIcon = {
+                                Icon(Icons.Default.Search, null, tint = textSec,
+                                    modifier = Modifier.size(18.dp))
+                            },
+                            trailingIcon = {
+                                if (filterQuery.isNotEmpty()) {
+                                    IconButton(onClick = { filterQuery = "" }) {
+                                        Icon(Icons.Default.Clear, null, tint = textSec,
+                                            modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                            }
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf(
+                                "all" to "Все", "closed" to "Закрыт",
+                                "paid" to "Оплачен", "refunded" to "Возврат"
+                            ).forEach { (key, lbl) ->
+                                FilterChip(
+                                    selected = filterStatus == key,
+                                    onClick = { filterStatus = key },
+                                    label = { Text(lbl, fontSize = 11.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = accent.copy(alpha = 0.2f),
+                                        selectedLabelColor = accent
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
+        when {
+            allSales.isEmpty() && isLoading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(24.dp)) {
+                        CircularProgressIndicator(color = accent)
+                        Spacer(Modifier.height(20.dp))
+                        Text("Загружаем историю продаж...",
+                            color = textPri, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Процесс идёт в фоне",
+                            color = textSec, fontSize = 12.sp, textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(8.dp))
+                        Text("Загружено: $totalLoaded", color = accent, fontSize = 13.sp)
+                    }
+                }
+            }
+
+            allSales.isEmpty() && !isLoading -> {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.ShoppingBag, null,
+                            tint = textSec.copy(alpha = 0.4f), modifier = Modifier.size(56.dp))
+                        Spacer(Modifier.height(12.dp))
+                        Text(errorMsg ?: "Продаж пока нет", color = textSec)
+                        if (errorMsg != null) {
+                            Spacer(Modifier.height(12.dp))
+                            Button(onClick = { startLoad(true) },
+                                colors = ButtonDefaults.buttonColors(containerColor = accent)) {
+                                Text("Повторить")
+                            }
+                        }
+                    }
+                }
+            }
+
+            else -> {
+                LazyColumn(Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(bottom = 16.dp)) {
+
+
+                    filteredStats?.let { st ->
+                        item {
+                            Column(Modifier.fillMaxWidth().padding(12.dp)) {
+                                Box(modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(accent.copy(alpha = 0.12f))) {
+                                    Row(Modifier.padding(14.dp),
+                                        verticalAlignment = Alignment.CenterVertically) {
+                                        Text("💰", fontSize = 28.sp)
+                                        Spacer(Modifier.width(12.dp))
+                                        Column {
+                                            Text(
+                                                String.format(
+                                                    Locale.US,
+                                                    "%.2f ₽", st.totalRevenue),
+                                                color = accent, fontSize = 22.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                            Text("Всего заработано (закрытые)",
+                                                color = textSec, fontSize = 11.sp)
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Row(Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    SalesStatCard(Modifier.weight(1f), "📦",
+                                        "${filteredSales.size}${if (!isFullLoad) "+" else ""}",
+                                        "Заказов", surf, textPri, textSec)
+                                    SalesStatCard(Modifier.weight(1f), "✅",
+                                        "${st.closedOrders}", "Закрыто", surf, textPri, textSec)
+                                    SalesStatCard(Modifier.weight(1f), "⏳",
+                                        "${st.pendingOrders}", "Ожидают", surf, textPri, textSec)
+                                    SalesStatCard(Modifier.weight(1f), "↩️",
+                                        "${st.refundedOrders}", "Возвраты", surf, textPri, textSec)
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Row(Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    SalesStatCard(Modifier.weight(1f), "👥",
+                                        "${st.uniqueBuyers}", "Покупателей", surf, textPri, textSec)
+                                    SalesStatCard(Modifier.weight(1f), "📈",
+                                        String.format(Locale.US, "%.2f ₽", st.avgCheck),
+                                        "Ср. чек", surf, textPri, textSec)
+                                    SalesStatCard(Modifier.weight(1f), "💎",
+                                        String.format(Locale.US, "%.2f ₽", st.topSale),
+                                        "Макс.", surf, textPri, textSec)
+                                }
+
+                                if (st.pendingOrders > 0) {
+                                    Spacer(Modifier.height(8.dp))
+                                    Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(Color(0xFFFFA000).copy(alpha = 0.12f))) {
+                                        Row(Modifier.padding(10.dp),
+                                            verticalAlignment = Alignment.CenterVertically) {
+                                            Text("⏳", fontSize = 16.sp)
+                                            Spacer(Modifier.width(8.dp))
+                                            Column {
+                                                Text(
+                                                    "Не подтверждено: ${st.unconfirmedCount} шт.",
+                                                    color = Color(0xFFFFA000),
+                                                    fontWeight = FontWeight.Bold, fontSize = 12.sp
+                                                )
+                                                Text(
+                                                    String.format(
+                                                        Locale.US,
+                                                        "%.2f ₽ — ожидают", st.unconfirmedRevenue),
+                                                    color = textSec, fontSize = 11.sp
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (st.topBuyer.isNotEmpty() || st.popularCategory.isNotEmpty()) {
+                                    Spacer(Modifier.height(8.dp))
+                                    Box(modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(surf)) {
+                                        Column(Modifier.padding(10.dp)) {
+                                            if (st.topBuyer.isNotEmpty()) {
+                                                Row(Modifier.fillMaxWidth()) {
+                                                    Text("🏆 ", fontSize = 13.sp)
+                                                    Text("Лучший покупатель: ",
+                                                        color = textSec, fontSize = 12.sp)
+                                                    Text(st.topBuyer, color = accent,
+                                                        fontWeight = FontWeight.Bold, fontSize = 12.sp,
+                                                        modifier = Modifier.weight(1f), maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis)
+                                                }
+                                            }
+                                            if (st.popularCategory.isNotEmpty()) {
+                                                Row(Modifier.fillMaxWidth()) {
+                                                    Text("🎮 ", fontSize = 13.sp)
+                                                    Text("Топ категория: ",
+                                                        color = textSec, fontSize = 12.sp)
+                                                    Text(st.popularCategory, color = textPri,
+                                                        fontSize = 12.sp,
+                                                        modifier = Modifier.weight(1f), maxLines = 1,
+                                                        overflow = TextOverflow.Ellipsis)
+                                                }
+                                            }
+                                            if (st.popularProduct.isNotEmpty()) {
+                                                Row(Modifier.fillMaxWidth()) {
+                                                    Text("🔥 ", fontSize = 13.sp)
+                                                    Text("Топ товар: ",
+                                                        color = textSec, fontSize = 12.sp)
+                                                    Text(st.popularProduct.take(60),
+                                                        color = textPri, fontSize = 12.sp,
+                                                        modifier = Modifier.weight(1f), maxLines = 2,
+                                                        overflow = TextOverflow.Ellipsis)
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            HorizontalDivider(color = textSec.copy(alpha = 0.1f))
+                        }
+                    }
+
+
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                "Заказы (${filteredSales.size}${if (!isFullLoad) "+" else ""})",
+                                color = textPri, fontWeight = FontWeight.SemiBold,
+                                fontSize = 14.sp, modifier = Modifier.weight(1f)
+                            )
+                            if (!isFullLoad && !isLoading) {
+                                Text("ожидает догрузки...", color = textSec, fontSize = 11.sp)
+                            }
+                        }
+                    }
+
+
+                    items(
+                        items = filteredSales,
+                        key = { saleItem: FunPayRepository.SaleItem -> saleItem.orderId }
+                    ) { sale: FunPayRepository.SaleItem ->
+                        val statusColor = when (sale.status) {
+                            "closed"   -> Color(0xFF4CAF50)
+                            "paid"     -> Color(0xFFFFA000)
+                            "refunded" -> Color(0xFFFF5722)
+                            else       -> textSec
+                        }
+                        Box(modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 3.dp)
+                            .clickable { navController.navigate("order/${sale.orderId}") }.clip(RoundedCornerShape(10.dp)).background(surf)) {
+                            Row(Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                if (sale.buyerAvatar.isNotEmpty()) {
+                                    AsyncImage(
+                                        model = sale.buyerAvatar, contentDescription = null,
+                                        modifier = Modifier.size(36.dp).clip(CircleShape),
+                                        contentScale = ContentScale.Crop
+                                    )
+                                } else {
+                                    Box(
+                                        Modifier.size(36.dp).clip(CircleShape)
+                                            .background(accent.copy(alpha = 0.2f)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(sale.buyerName.take(1).uppercase(),
+                                            color = accent, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Spacer(Modifier.width(10.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(sale.buyerName, color = accent,
+                                            fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text(sale.statusText, color = statusColor,
+                                            fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                                    }
+                                    val desc: String =
+                                        if (sale.description.isNotEmpty()) sale.description
+                                        else sale.title
+                                    Text(desc, color = textPri, fontSize = 11.sp,
+                                        maxLines = 2, overflow = TextOverflow.Ellipsis)
+                                    if (sale.game.isNotEmpty()) {
+                                        Text("${sale.game}, ${sale.category}",
+                                            color = textSec, fontSize = 10.sp)
+                                    }
+                                    Text(sale.date, color = textSec, fontSize = 10.sp)
+                                }
+                                Spacer(Modifier.width(8.dp))
+                                Column(horizontalAlignment = Alignment.End) {
+                                    Text(
+                                        sale.price,
+                                        color = if (sale.status == "refunded")
+                                            Color(0xFFFF5722) else textPri,
+                                        fontWeight = FontWeight.Bold, fontSize = 13.sp
+                                    )
+                                    Text("#${sale.orderId}", color = textSec, fontSize = 9.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    if (isLoading && allSales.isNotEmpty()) {
+                        item {
+                            Box(Modifier.fillMaxWidth().padding(16.dp),
+                                contentAlignment = Alignment.Center) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(Modifier.size(16.dp),
+                                        color = accent, strokeWidth = 2.dp)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Догружаем историю... ($totalLoaded)",
+                                        color = textSec, fontSize = 12.sp)
+                                }
+                            }
+                        }
+                    }
+
+                    item { Spacer(Modifier.height(80.dp)) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SalesStatCard(
+    modifier: Modifier = Modifier,
+    icon: String,
+    value: String,
+    label: String,
+    surf: Color,
+    textPri: Color,
+    textSec: Color
+) {
+    Box(modifier = modifier.clip(RoundedCornerShape(10.dp)).background(surf)) {
+        Column(Modifier.padding(8.dp)) {
+            Text(icon, fontSize = 16.sp)
+            Text(value, color = textPri, fontWeight = FontWeight.Bold,
+                fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(label, color = textSec, fontSize = 10.sp)
+        }
+    }
+}
+
+data class CatalogPack(
+    val id: String = "",
+    val created_at: String = "",
+    val author: String = "",
+    val name: String = "",
+    val description: String = "",
+    val pack_data: Map<String, Any> = emptyMap()
+)
+
+object CatalogApiManager {
+    private const val API_URL = "https://funpay.tools/api/catalog"
+    private val gson = Gson()
+
+    suspend fun getCatalog(): Result<List<CatalogPack>> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(API_URL)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "GET"
+            connection.connectTimeout = 10000
+            connection.readTimeout = 10000
+
+            if (connection.responseCode == 200) {
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+                val type = object : TypeToken<List<CatalogPack>>() {}.type
+                val packs: List<CatalogPack> = gson.fromJson(response, type)
+                Result.success(packs)
+            } else {
+                Result.failure(Exception("Ошибка сервера: ${connection.responseCode}"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun publishPack(author: String, name: String, desc: String, packData: Map<String, Any>): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val url = URL(API_URL)
+            val connection = url.openConnection() as HttpURLConnection
+            connection.requestMethod = "POST"
+            connection.setRequestProperty("Content-Type", "application/json")
+            connection.doOutput = true
+
+            val payload = mapOf(
+                "author" to author,
+                "name" to name,
+                "description" to desc,
+                "pack_data" to packData
+            )
+
+            val jsonString = gson.toJson(payload)
+
+
+            if (jsonString.toByteArray(Charsets.UTF_8).size > 1_000_000) {
+                return@withContext Result.failure(Exception("Файл слишком большой. Лимит 1 МБ."))
+            }
+
+            OutputStreamWriter(connection.outputStream).use { it.write(jsonString) }
+
+            if (connection.responseCode == 200) {
+                Result.success(Unit)
+            } else {
+                val errorMsg = try { connection.errorStream.bufferedReader().use { it.readText() } } catch (e:Exception) { "Неизвестная ошибка" }
+                Result.failure(Exception("Ошибка: $errorMsg"))
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+}
+
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CatalogMainScreen(navController: NavController, theme: AppTheme) {
+    var packs by remember { mutableStateOf<List<CatalogPack>>(emptyList()) }
+    var filteredPacks by remember { mutableStateOf<List<CatalogPack>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var searchQuery by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        CatalogApiManager.getCatalog()
+            .onSuccess {
+                packs = it
+                filteredPacks = it
+                isLoading = false
+            }
+            .onFailure {
+                error = it.message
+                isLoading = false
+            }
+    }
+
+    LaunchedEffect(searchQuery) {
+        filteredPacks = if (searchQuery.isBlank()) packs else {
+            val q = searchQuery.lowercase()
+            packs.filter { it.name.lowercase().contains(q) || it.author.lowercase().contains(q) || it.description.lowercase().contains(q) }
+        }
+    }
+
+    Scaffold(
+        containerColor = ThemeManager.parseColor(theme.backgroundColor),
+        topBar = {
+            TopAppBar(
+                title = { Text("Каталог Шаблонов", color = ThemeManager.parseColor(theme.textPrimaryColor), fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = ThemeManager.parseColor(theme.textPrimaryColor))
+                    }
+                },
+                actions = {
+                    IconButton(onClick = { navController.navigate("catalog_export") }) {
+                        Icon(Icons.Default.CloudUpload, "Опубликовать свой", tint = ThemeManager.parseColor(theme.accentColor))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = ThemeManager.parseColor(theme.surfaceColor))
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Поиск паков...", color = ThemeManager.parseColor(theme.textSecondaryColor)) },
+                leadingIcon = { Icon(Icons.Default.Search, null, tint = ThemeManager.parseColor(theme.accentColor)) },
+                shape = RoundedCornerShape(12.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                    unfocusedBorderColor = ThemeManager.parseColor(theme.surfaceColor),
+                    focusedContainerColor = ThemeManager.parseColor(theme.surfaceColor),
+                    unfocusedContainerColor = ThemeManager.parseColor(theme.surfaceColor),
+                    focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                    unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor)
+                ),
+                singleLine = true
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            if (isLoading) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator(color = ThemeManager.parseColor(theme.accentColor))
+                }
+            } else if (error != null) {
+                Text("Ошибка: $error", color = Color.Red)
+            } else if (filteredPacks.isEmpty()) {
+                Text("Ничего не найдено", color = ThemeManager.parseColor(theme.textSecondaryColor))
+            } else {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(filteredPacks) { pack ->
+                        Box(modifier = Modifier.fillMaxWidth().clickable {
+                            SharedCatalogPack = pack
+                            navController.navigate("catalog_import")
+                        }.clip(RoundedCornerShape(12.dp)).background(ThemeManager.parseColor(theme.surfaceColor).copy(0.8f))) {
+                            Column(Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(pack.name, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ThemeManager.parseColor(theme.textPrimaryColor), modifier = Modifier.weight(1f))
+                                    Icon(Icons.Default.Download, null, tint = ThemeManager.parseColor(theme.accentColor), modifier = Modifier.size(18.dp))
+                                }
+                                Spacer(Modifier.height(4.dp))
+                                Text("Автор: ${pack.author}", fontSize = 11.sp, color = ThemeManager.parseColor(theme.accentColor), fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.height(6.dp))
+                                Text(pack.description, fontSize = 13.sp, color = ThemeManager.parseColor(theme.textSecondaryColor), maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+fun LazyListScope.dataTreeEditor(
+    editableData: Map<String, Any>,
+    selectedItems: MutableMap<String, Boolean>,
+    theme: AppTheme,
+    onUpdateData: (String, Any) -> Unit
+) {
+    editableData.forEach { (category, items) ->
+        item {
+            Text(
+                text = translateCategoryName(category).uppercase(),
+                color = ThemeManager.parseColor(theme.accentColor),
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                letterSpacing = 1.sp,
+                modifier = Modifier.padding(top = 16.dp, bottom = 8.dp)
+            )
+        }
+
+        if (items is List<*>) {
+            val list = items.filterIsInstance<Map<String, Any>>()
+            item {
+                val allSelected = list.indices.all { selectedItems["${category}_$it"] == true }
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                    Checkbox(
+                        checked = allSelected,
+                        onCheckedChange = { chk -> list.indices.forEach { i -> selectedItems["${category}_$i"] = chk } },
+                        colors = CheckboxDefaults.colors(checkedColor = ThemeManager.parseColor(theme.accentColor))
+                    )
+                    Text(if (allSelected) "Снять всё" else "Выбрать всё", color = ThemeManager.parseColor(theme.textPrimaryColor), fontSize = 13.sp)
+                }
+            }
+
+            itemsIndexed(list) { index, itemMap ->
+                val isSelected = selectedItems["${category}_$index"] ?: false
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).alpha(if (isSelected) 1f else 0.4f).clip(RoundedCornerShape(8.dp)).background(ThemeManager.parseColor(theme.surfaceColor)).border(1.dp, if (isSelected) ThemeManager.parseColor(theme.accentColor).copy(0.4f) else Color.Transparent, RoundedCornerShape(8.dp))) {
+                    Column(Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { selectedItems["${category}_$index"] = it },
+                                colors = CheckboxDefaults.colors(checkedColor = ThemeManager.parseColor(theme.accentColor))
+                            )
+                            Text(
+                                itemMap["name"] as? String ?: itemMap["trigger"] as? String ?: "Элемент #${index + 1}",
+                                color = ThemeManager.parseColor(theme.textPrimaryColor),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        if (isSelected) {
+                            itemMap.forEach { (k, v) ->
+                                if (k != "id" && (v is String || v is Number)) {
+                                    OutlinedTextField(
+                                        value = v.toString(),
+                                        onValueChange = { newVal ->
+                                            val newList = list.toMutableList()
+                                            val newMap = newList[index].toMutableMap()
+                                            newMap[k] = newVal
+                                            newList[index] = newMap
+                                            onUpdateData(category, newList)
+                                        },
+                                        label = { Text(k, fontSize = 11.sp) },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                                            focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                            unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor)
+                                        ),
+                                        maxLines = 3,
+                                        textStyle = TextStyle(fontSize = 13.sp)
+                                    )
+                                } else if (k != "id" && v is Boolean) {
+                                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(k, color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                        Switch(
+                                            checked = v,
+                                            onCheckedChange = { newVal ->
+                                                val newList = list.toMutableList()
+                                                val newMap = newList[index].toMutableMap()
+                                                newMap[k] = newVal
+                                                newList[index] = newMap
+                                                onUpdateData(category, newList)
+                                            },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = ThemeManager.parseColor(theme.accentColor))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else if (items is Map<*, *>) {
+            val itemMap = items as Map<String, Any>
+            item {
+                val isSelected = selectedItems["${category}_obj"] ?: false
+                Box(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).alpha(if (isSelected) 1f else 0.4f).clip(RoundedCornerShape(8.dp)).background(ThemeManager.parseColor(theme.surfaceColor)).border(1.dp, if (isSelected) ThemeManager.parseColor(theme.accentColor).copy(0.4f) else Color.Transparent, RoundedCornerShape(8.dp))) {
+                    Column(Modifier.padding(12.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 8.dp)) {
+                            Checkbox(
+                                checked = isSelected,
+                                onCheckedChange = { selectedItems["${category}_obj"] = it },
+                                colors = CheckboxDefaults.colors(checkedColor = ThemeManager.parseColor(theme.accentColor))
+                            )
+                            Text("Выбрать блок настроек", color = ThemeManager.parseColor(theme.textPrimaryColor), fontWeight = FontWeight.Bold)
+                        }
+
+                        if (isSelected) {
+                            itemMap.forEach { (k, v) ->
+                                if (k != "id" && (v is String || v is Number)) {
+                                    OutlinedTextField(
+                                        value = v.toString(),
+                                        onValueChange = { newVal ->
+                                            val newMap = itemMap.toMutableMap()
+                                            newMap[k] = newVal
+                                            onUpdateData(category, newMap)
+                                        },
+                                        label = { Text(k, fontSize = 11.sp) },
+                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = ThemeManager.parseColor(theme.accentColor),
+                                            focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor),
+                                            unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor)
+                                        ),
+                                        maxLines = 3,
+                                        textStyle = TextStyle(fontSize = 13.sp)
+                                    )
+                                } else if (k != "id" && v is Boolean) {
+                                    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                                        Text(k, color = ThemeManager.parseColor(theme.textSecondaryColor), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                                        Switch(
+                                            checked = v,
+                                            onCheckedChange = { newVal ->
+                                                val newMap = itemMap.toMutableMap()
+                                                newMap[k] = newVal
+                                                onUpdateData(category, newMap)
+                                            },
+                                            colors = SwitchDefaults.colors(checkedThumbColor = ThemeManager.parseColor(theme.accentColor))
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CatalogImportScreen(navController: NavController, repository: FunPayRepository, theme: AppTheme) {
+    val pack = SharedCatalogPack
+    val context = LocalContext.current
+    if (pack == null) {
+        navController.popBackStack()
+        return
+    }
+
+    var editableData by remember { mutableStateOf(pack.pack_data.toMutableMap()) }
+    val selectedItems = remember { mutableStateMapOf<String, Boolean>() }
+    val gson = Gson()
+
+    LaunchedEffect(Unit) {
+        pack.pack_data.forEach { (cat, items) ->
+            if (items is List<*>) {
+                items.forEachIndexed { i, _ -> selectedItems["${cat}_$i"] = true }
+            } else {
+                selectedItems["${cat}_obj"] = true
+            }
+        }
+    }
+
+    Scaffold(
+        containerColor = ThemeManager.parseColor(theme.backgroundColor),
+        topBar = {
+            TopAppBar(
+                title = { Text(pack.name, color = ThemeManager.parseColor(theme.textPrimaryColor), maxLines = 1) },
+                navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = ThemeManager.parseColor(theme.textPrimaryColor)) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = ThemeManager.parseColor(theme.surfaceColor))
+            )
+        },
+        bottomBar = {
+            Surface(color = ThemeManager.parseColor(theme.surfaceColor), modifier = Modifier.fillMaxWidth()) {
+                Button(
+                    onClick = {
+                        try {
+                            val finalDataToApply = mutableMapOf<String, Any>()
+                            editableData.forEach { (cat, items) ->
+                                if (items is List<*>) {
+                                    val filteredList = items.filterIndexed { index, _ -> selectedItems["${cat}_$index"] == true }
+                                    if (filteredList.isNotEmpty()) finalDataToApply[cat] = filteredList
+                                } else {
+                                    if (selectedItems["${cat}_obj"] == true) finalDataToApply[cat] = items
+                                }
+                            }
+
+                            if (finalDataToApply.containsKey("templates")) {
+                                val listType = object : TypeToken<List<MessageTemplate>>() {}.type
+                                val newItems: List<MessageTemplate> = gson.fromJson(gson.toJson(finalDataToApply["templates"]), listType)
+                                repository.saveMessageTemplates(repository.getMessageTemplates() + newItems)
+                            }
+                            if (finalDataToApply.containsKey("auto_responses")) {
+                                val listType = object : TypeToken<List<AutoResponseCommand>>() {}.type
+                                val newItems: List<AutoResponseCommand> = gson.fromJson(gson.toJson(finalDataToApply["auto_responses"]), listType)
+                                repository.saveCommands(repository.getCommands() + newItems)
+                            }
+                            if (finalDataToApply.containsKey("ai_settings")) {
+                                val aiSettings = gson.fromJson(gson.toJson(finalDataToApply["ai_settings"]), AiVarPermissions::class.java)
+                                repository.saveAiVarPermissions(aiSettings)
+                            }
+                            if (finalDataToApply.containsKey("review_reply_settings")) {
+                                val rs = gson.fromJson(gson.toJson(finalDataToApply["review_reply_settings"]), ReviewReplySettings::class.java)
+                                repository.saveReviewReplySettings(rs)
+                            }
+                            if (finalDataToApply.containsKey("greeting_settings")) {
+                                val gs = gson.fromJson(gson.toJson(finalDataToApply["greeting_settings"]), GreetingSettings::class.java)
+                                repository.saveGreetingSettings(gs)
+                            }
+                            if (finalDataToApply.containsKey("order_confirm_settings")) {
+                                val ocs = gson.fromJson(gson.toJson(finalDataToApply["order_confirm_settings"]), OrderConfirmSettings::class.java)
+                                repository.saveOrderConfirmSettings(ocs)
+                            }
+
+                            Toast.makeText(context, "Выбранные элементы успешно скачаны!", Toast.LENGTH_SHORT).show()
+                            navController.popBackStack()
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "Ошибка скачивания: ${e.message}", Toast.LENGTH_LONG).show()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                ) {
+                    Icon(Icons.Default.Download, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Скачать выбранное себе", fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    ) { padding ->
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            item {
+                Text("Перед скачиванием вы можете снять галочки с ненужных элементов и даже отредактировать их текста.", fontSize = 13.sp, color = ThemeManager.parseColor(theme.textSecondaryColor))
+                Spacer(Modifier.height(8.dp))
+            }
+
+            dataTreeEditor(
+                editableData = editableData,
+                selectedItems = selectedItems,
+                theme = theme,
+                onUpdateData = { category, newItems ->
+                    editableData = editableData.toMutableMap().apply { this[category] = newItems }
+                }
+            )
+        }
+    }
+}
+
+
+
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun CatalogExportScreen(navController: NavController, repository: FunPayRepository, theme: AppTheme) {
+    val context = LocalContext.current
+    var author by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    var desc by remember { mutableStateOf("") }
+    var isPublishing by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val gson = Gson()
+
+
+    var editableData by remember { mutableStateOf<MutableMap<String, Any>>(mutableMapOf()) }
+    val selectedItems = remember { mutableStateMapOf<String, Boolean>() }
+    var isLoaded by remember { mutableStateOf(false) }
+
+    LaunchedEffect(Unit) {
+        val rawData = mutableMapOf<String, Any>()
+
+        val templates = repository.getMessageTemplates()
+        if (templates.isNotEmpty()) rawData["templates"] = templates
+
+        val commands = repository.getCommands()
+        if (commands.isNotEmpty()) rawData["auto_responses"] = commands
+
+        rawData["ai_settings"] = repository.getAiVarPermissions()
+        rawData["review_reply_settings"] = repository.getReviewReplySettings()
+        rawData["greeting_settings"] = repository.getGreetingSettings()
+        rawData["order_confirm_settings"] = repository.getOrderConfirmSettings()
+
+
+        val jsonStr = gson.toJson(rawData)
+        val type = object : TypeToken<Map<String, Any>>() {}.type
+        val parsedMap: Map<String, Any> = gson.fromJson(jsonStr, type)
+        editableData = parsedMap.toMutableMap()
+
+
+        parsedMap.forEach { (cat, items) ->
+            if (items is List<*>) {
+                items.forEachIndexed { i, _ -> selectedItems["${cat}_$i"] = false }
+            } else {
+                selectedItems["${cat}_obj"] = false
+            }
+        }
+        isLoaded = true
+    }
+
+    Scaffold(
+        containerColor = ThemeManager.parseColor(theme.backgroundColor),
+        topBar = {
+            TopAppBar(
+                title = { Text("Опубликовать свой пак", color = ThemeManager.parseColor(theme.textPrimaryColor)) },
+                navigationIcon = { IconButton(onClick = { navController.popBackStack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = ThemeManager.parseColor(theme.textPrimaryColor)) } },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = ThemeManager.parseColor(theme.surfaceColor))
+            )
+        },
+        bottomBar = {
+            if (isLoaded) {
+                Surface(color = ThemeManager.parseColor(theme.surfaceColor), modifier = Modifier.fillMaxWidth()) {
+                    Button(
+                        onClick = {
+                            if (author.isBlank() || name.isBlank()) {
+                                Toast.makeText(context, "Заполните свой никнейм и название пака", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            val finalDataToPublish = mutableMapOf<String, Any>()
+                            editableData.forEach { (cat, items) ->
+                                if (items is List<*>) {
+                                    val filteredList = items.filterIndexed { index, _ -> selectedItems["${cat}_$index"] == true }
+                                    if (filteredList.isNotEmpty()) finalDataToPublish[cat] = filteredList
+                                } else {
+                                    if (selectedItems["${cat}_obj"] == true) finalDataToPublish[cat] = items
+                                }
+                            }
+
+                            if (finalDataToPublish.isEmpty()) {
+                                Toast.makeText(context, "Вы не выбрали ни одного элемента для выгрузки!", Toast.LENGTH_SHORT).show()
+                                return@Button
+                            }
+
+                            isPublishing = true
+                            scope.launch {
+                                CatalogApiManager.publishPack(author, name, desc, finalDataToPublish)
+                                    .onSuccess {
+                                        Toast.makeText(context, "Пак успешно опубликован в каталоге!", Toast.LENGTH_LONG).show()
+                                        navController.popBackStack()
+                                    }
+                                    .onFailure { e ->
+                                        Toast.makeText(context, "Ошибка публикации: ${e.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                isPublishing = false
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(16.dp).height(50.dp),
+                        enabled = !isPublishing,
+                        colors = ButtonDefaults.buttonColors(containerColor = ThemeManager.parseColor(theme.accentColor))
+                    ) {
+                        if (isPublishing) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
+                        else Text("Опубликовать выбранное", fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+    ) { padding ->
+        LazyColumn(modifier = Modifier.fillMaxSize().padding(padding).padding(16.dp)) {
+            item {
+                Text("Детали пака", color = ThemeManager.parseColor(theme.accentColor), fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = author, onValueChange = { author = it }, label = { Text("Ваш никнейм") }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ThemeManager.parseColor(theme.accentColor), focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor), unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor)))
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название пака") }, modifier = Modifier.fillMaxWidth(), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ThemeManager.parseColor(theme.accentColor), focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor), unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor)))
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Краткое описание") }, modifier = Modifier.fillMaxWidth(), minLines = 2, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = ThemeManager.parseColor(theme.accentColor), focusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor), unfocusedTextColor = ThemeManager.parseColor(theme.textPrimaryColor)))
+
+                Spacer(Modifier.height(24.dp))
+                Text("Отметьте галочками всё, чем хотите поделиться:", color = ThemeManager.parseColor(theme.accentColor), fontWeight = FontWeight.Bold)
+                Spacer(Modifier.height(4.dp))
+            }
+
+            if (isLoaded) {
+                dataTreeEditor(
+                    editableData = editableData,
+                    selectedItems = selectedItems,
+                    theme = theme,
+                    onUpdateData = { category, newItems ->
+                        editableData = editableData.toMutableMap().apply { this[category] = newItems }
+                    }
+                )
+            } else {
+                item {
+                    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = ThemeManager.parseColor(theme.accentColor))
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+fun translateCategoryName(cat: String): String = when (cat) {
+    "templates" -> "Шаблоны сообщений"
+    "auto_responses" -> "Автоответы и команды"
+    "ai_settings" -> "ИИ переменные"
+    "review_reply_settings" -> "Автоответ на отзывы"
+    "greeting_settings" -> "Приветствия"
+    "order_confirm_settings" -> "Просьба отзыва"
+    "feedback_bonus_settings" -> "Бонусы за отзывы"
+    else -> cat
+}

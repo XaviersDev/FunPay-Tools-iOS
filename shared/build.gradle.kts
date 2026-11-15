@@ -41,10 +41,21 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.13.0")
             implementation("com.fleeksoft.ksoup:ksoup:0.2.6")
             implementation("io.coil-kt.coil3:coil-compose:3.6.3")
+            implementation("io.coil-kt.coil3:coil-network-ktor3:3.6.3")
+            implementation("io.ktor:ktor-client-core:3.6.1")
             implementation("com.squareup.okio:okio:3.18.2")
             implementation("co.touchlab:stately-concurrent-collections:2.1.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0")
+            implementation("org.jetbrains.androidx.lifecycle:lifecycle-viewmodel-compose:2.11.0")
+            implementation("org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose:2.11.0")
+            implementation("org.jetbrains.compose.ui:ui-backhandler:1.12.2")
+            implementation("org.jetbrains.skiko:skiko:0.150.2")
+        }
+        iosMain.dependencies {
+            implementation("io.ktor:ktor-client-darwin:3.6.1")
         }
         jvmMain.dependencies {
+            implementation("io.ktor:ktor-client-java:3.6.1")
             implementation(compose.desktop.currentOs)
             implementation("org.jetbrains.kotlinx:kotlinx-coroutines-swing:1.11.0")
         }
