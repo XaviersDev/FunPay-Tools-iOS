@@ -11043,6 +11043,10 @@ fun SalesScreen(
     var filterStatus by remember { mutableStateOf("all") }
     var filterQuery  by remember { mutableStateOf("") }
     var showFilter   by remember { mutableStateOf(false) }
+    var showBreakdown by remember { mutableStateOf(false) }
+    if (showBreakdown) {
+        SalesBreakdownDialog(allSales, isFullLoad, theme) { showBreakdown = false }
+    }
 
     val accent  = ThemeManager.parseColor(theme.accentColor)
     val textPri = ThemeManager.parseColor(theme.textPrimaryColor)
@@ -11313,6 +11317,21 @@ fun SalesScreen(
                                                 color = textSec, fontSize = 11.sp)
                                         }
                                     }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                Row(
+                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                                        .background(surf).clickable { showBreakdown = true }
+                                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text("📊", fontSize = 18.sp)
+                                    Spacer(Modifier.width(10.dp))
+                                    Column(Modifier.weight(1f)) {
+                                        Text("По играм и категориям", color = textPri, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                                        Text("Сегодня, неделя, месяц и % сотрудникам", color = textSec, fontSize = 11.sp)
+                                    }
+                                    Icon(Icons.Default.ChevronRight, null, tint = textSec)
                                 }
                                 Spacer(Modifier.height(8.dp))
                                 Row(Modifier.fillMaxWidth(),

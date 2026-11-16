@@ -52,7 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 
-const val APP_VERSION = "1.4.1"
+const val APP_VERSION = "1.4.2"
 
 /** Заказы, по которым только что ушёл бонус за отзыв (общая на все экземпляры репозитория). */
 private val recentBonusOrders = HashMap<String, Long>()

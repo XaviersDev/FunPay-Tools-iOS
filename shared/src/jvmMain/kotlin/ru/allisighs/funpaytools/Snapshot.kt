@@ -97,6 +97,29 @@ fun main(args: Array<String>) {
                 continue
             }
             if (w == "root") { Snapshot.render("root", frames = 160) { FunPayToolsRoot() }; continue }
+            if (w == "breakdown") {
+                fun sale(id: String, d: String, st: String, v: Double, g: String, c: String) = FunPayRepository.SaleItem(id, "", "товар", "$v ₽", v, "buyer", "", "", d, st, "", g, c)
+                val demo = listOf(
+                    sale("A1", "сегодня, 12:10", "closed", 300.0, "Roblox", "Grow a Garden"),
+                    sale("A2", "сегодня, 13:40", "closed", 150.0, "Roblox", "Grow a Garden"),
+                    sale("A3", "сегодня, 14:00", "closed", 990.0, "Roblox", "Робуксы"),
+                    sale("A4", "сегодня, 15:00", "paid", 500.0, "Roblox", "Робуксы"),
+                    sale("A5", "сегодня, 09:00", "closed", 1200.0, "Steam", "Ключи"),
+                    sale("A6", "вчера, 20:00", "closed", 700.0, "Steam", "Ключи"),
+                    sale("A7", "сегодня, 10:00", "refunded", 100.0, "Steam", "Ключи")
+                )
+                AppContext.getSharedPreferences("sales_percent", Context.MODE_PRIVATE).edit().putString("Roblox|Робуксы", "10").apply()
+                val rows = SalesBreakdown.compute(demo, SalesBreakdown.Period.TODAY)
+                println("BREAKDOWN " + rows)
+                println(SalesBreakdown.report(rows, SalesBreakdown.loadPercents(AppContext), SalesBreakdown.Period.TODAY))
+                Snapshot.render("breakdown", frames = 40) {
+                    val theme = androidx.compose.runtime.remember { ThemeManager.loadTheme(AppContext) }
+                    androidx.compose.material3.MaterialTheme(colorScheme = colorSchemeFor(theme)) {
+                        SalesBreakdownDialog(demo, true, theme) { }
+                    }
+                }
+                continue
+            }
             if (w == "emp_on") { EmployeeMode.set(AppContext, true); continue }
             if (w == "emp_off") { EmployeeMode.set(AppContext, false); continue }
             try { Snapshot.render(w.replace("/", "_"), frames = 60) {
