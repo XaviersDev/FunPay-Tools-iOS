@@ -97,6 +97,8 @@ fun main(args: Array<String>) {
                 continue
             }
             if (w == "root") { Snapshot.render("root", frames = 160) { FunPayToolsRoot() }; continue }
+            if (w == "emp_on") { EmployeeMode.set(AppContext, true); continue }
+            if (w == "emp_off") { EmployeeMode.set(AppContext, false); continue }
             try { Snapshot.render(w.replace("/", "_"), frames = 60) {
                 val theme = androidx.compose.runtime.remember { ThemeManager.loadTheme(AppContext) }
                 DesignTokens.theme = theme

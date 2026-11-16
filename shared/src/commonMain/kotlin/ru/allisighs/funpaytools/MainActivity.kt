@@ -185,6 +185,7 @@ object AppBootstrap {
         try { LicenseManager.init(AppContext) } catch (e: Exception) { e.printStackTrace() }
         try { EpicNicksManager.init() } catch (e: Exception) { e.printStackTrace() }
         try { FptDecor.init() } catch (e: Exception) { e.printStackTrace() }
+        try { EmployeeMode.isOn(AppContext) } catch (e: Exception) { e.printStackTrace() }
         repository = FunPayRepository(AppContext)
         NotificationActionRouter.registerReceiver(ReplyReceiver::class) { ReplyReceiver() }
         NotificationActionRouter.onOpenIntent = { intent ->
@@ -1790,7 +1791,12 @@ fun DashboardScreen(navController: NavController, repository: FunPayRepository, 
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         val unreadCount = chats.count { it.isUnread }
-                        listOf(
+                        val employeeTabs = EmployeeMode.state.value
+                        (if (employeeTabs) listOf(
+                            0 to Icons.Default.Chat,
+                            8 to Icons.Default.Storefront,
+                            5 to Icons.Default.ShoppingBag
+                        ) else listOf(
                             0 to Icons.Default.Chat,
                             1 to Icons.Default.Tune,
                             6 to Icons.Default.AccountCircle,
@@ -1799,7 +1805,7 @@ fun DashboardScreen(navController: NavController, repository: FunPayRepository, 
                             3 to Icons.Default.Support,
                             7 to Icons.Default.Extension,
                             4 to Icons.Default.Terminal
-                        ).forEach { (index, icon) ->
+                        )).forEach { (index, icon) ->
                             val isSelected = selectedTab == index
                             Box(
                                 modifier = Modifier
@@ -1808,7 +1814,7 @@ fun DashboardScreen(navController: NavController, repository: FunPayRepository, 
                                     .clickable(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null
-                                    ) { selectedTab = index },
+                                    ) { if (index == 8) navController.navigate("lots") else selectedTab = index },
                                 contentAlignment = Alignment.Center
                             ) {
 
@@ -1856,6 +1862,9 @@ fun DashboardScreen(navController: NavController, repository: FunPayRepository, 
                     }
                 }
 
+                LaunchedEffect(EmployeeMode.state.value) {
+                    if (EmployeeMode.state.value && selectedTab !in setOf(0, 5)) selectedTab = 0
+                }
                 when (selectedTab) {
                     0 -> ChatListView(chats, isLoadingChats && !hasLoadedOnce, navController, currentTheme, repository) { selectedTab = 3 }
                     1 -> ControlView(navController, repository, currentTheme, onNavigateToSupport = { selectedTab = 3 })

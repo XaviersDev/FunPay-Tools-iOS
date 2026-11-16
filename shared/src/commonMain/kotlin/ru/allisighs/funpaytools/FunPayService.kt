@@ -145,61 +145,64 @@ object FunPayService {
                         checkPushNotifications(chats)
                     }
 
-                    var busySettings = ChatFolderManager.getBusyMode(context)
-                    val activeSlot = try {
-                        ChatFolderManager.getActiveScheduleSlot(context)
-                    } catch (_: Exception) { null }
-                    if (activeSlot != null && !busySettings.enabled) {
-                        val cal = Calendar.getInstance()
-                        val dayStamp = cal.get(Calendar.YEAR) * 10000L +
-                                cal.get(Calendar.MONTH) * 100L +
-                                cal.get(Calendar.DAY_OF_MONTH)
-                        val slotStamp = (activeSlot.id.hashCode().toLong() and 0xFFFFFFFFL)
-                        val scheduledEnabledAt = dayStamp * 1_000_000_000L + slotStamp
-                        busySettings = busySettings.copy(
-                            enabled = true,
-                            enabledAt = scheduledEnabledAt,
-                            message = if (activeSlot.overrideMessage && activeSlot.message.isNotBlank())
-                                activeSlot.message
-                            else busySettings.message,
-                            cooldownMinutes = if (activeSlot.overrideCooldown)
-                                activeSlot.cooldownMinutes
-                            else busySettings.cooldownMinutes
-                        )
-                    }
-
-                    if (busySettings.enabled) {
-                        repository.checkBusyModeReplies(chats, busySettings)
-                        if (busySettings.keepRaise) repository.raiseAllLots()
-                        if (busySettings.keepAutoResponse) repository.checkAutoResponse(chats)
-                        if (busySettings.keepGreeting) repository.checkGreetings(chats)
-                    } else {
-                        resolveNewUnreadChats(chats, repository)
-                        val unreadChatsForDelivery = chats.filter { it.isUnread }
-                        for (c in unreadChatsForDelivery) {
-                            AutoDeliveryManager.checkAutoDelivery(c, repository, context)
+                    // Режим сотрудника: только чаты и уведомления, автоматизацию ведёт владелец
+                    if (!EmployeeMode.isOn(context)) {
+                        var busySettings = ChatFolderManager.getBusyMode(context)
+                        val activeSlot = try {
+                            ChatFolderManager.getActiveScheduleSlot(context)
+                        } catch (_: Exception) { null }
+                        if (activeSlot != null && !busySettings.enabled) {
+                            val cal = Calendar.getInstance()
+                            val dayStamp = cal.get(Calendar.YEAR) * 10000L +
+                                    cal.get(Calendar.MONTH) * 100L +
+                                    cal.get(Calendar.DAY_OF_MONTH)
+                            val slotStamp = (activeSlot.id.hashCode().toLong() and 0xFFFFFFFFL)
+                            val scheduledEnabledAt = dayStamp * 1_000_000_000L + slotStamp
+                            busySettings = busySettings.copy(
+                                enabled = true,
+                                enabledAt = scheduledEnabledAt,
+                                message = if (activeSlot.overrideMessage && activeSlot.message.isNotBlank())
+                                    activeSlot.message
+                                else busySettings.message,
+                                cooldownMinutes = if (activeSlot.overrideCooldown)
+                                    activeSlot.cooldownMinutes
+                                else busySettings.cooldownMinutes
+                            )
                         }
-                        repository.checkAutoResponse(chats)
-                        repository.checkGreetings(chats)
-                        repository.raiseAllLots()
-                        repository.checkOrderConfirmations(chats)
-                        repository.checkAutoRefund(chats)
-                        repository.checkReviewReplies(chats)
-                        repository.runDumperCycle()
-                        repository.checkOrderReminders(chats)
-                        repository.checkAutoTicketCycle()
-                    }
 
-                    try {
-                        if (account.isActive) {
-                            ConcurentManager.tick(context, repository)
+                        if (busySettings.enabled) {
+                            repository.checkBusyModeReplies(chats, busySettings)
+                            if (busySettings.keepRaise) repository.raiseAllLots()
+                            if (busySettings.keepAutoResponse) repository.checkAutoResponse(chats)
+                            if (busySettings.keepGreeting) repository.checkGreetings(chats)
+                        } else {
+                            resolveNewUnreadChats(chats, repository)
+                            val unreadChatsForDelivery = chats.filter { it.isUnread }
+                            for (c in unreadChatsForDelivery) {
+                                AutoDeliveryManager.checkAutoDelivery(c, repository, context)
+                            }
+                            repository.checkAutoResponse(chats)
+                            repository.checkGreetings(chats)
+                            repository.raiseAllLots()
+                            repository.checkOrderConfirmations(chats)
+                            repository.checkAutoRefund(chats)
+                            repository.checkReviewReplies(chats)
+                            repository.runDumperCycle()
+                            repository.checkOrderReminders(chats)
+                            repository.checkAutoTicketCycle()
                         }
-                    } catch (e: Exception) { }
 
-                    if (repository.getSetting("always_online")) {
-                        if (System.currentTimeMillis() - lastOnlinePing > 4 * 60 * 1000L) {
-                            repository.pingOnlineStatus()
-                            lastOnlinePing = System.currentTimeMillis()
+                        try {
+                            if (account.isActive) {
+                                ConcurentManager.tick(context, repository)
+                            }
+                        } catch (e: Exception) { }
+
+                        if (repository.getSetting("always_online")) {
+                            if (System.currentTimeMillis() - lastOnlinePing > 4 * 60 * 1000L) {
+                                repository.pingOnlineStatus()
+                                lastOnlinePing = System.currentTimeMillis()
+                            }
                         }
                     }
 
